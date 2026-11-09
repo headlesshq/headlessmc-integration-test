@@ -205,7 +205,7 @@ jobs:
             sudo launchctl limit maxfiles 524288 524288
             ulimit -n 524288
           fi
-          ./gradlew test --continue --stacktrace
+          ./gradlew test --rerun --continue --stacktrace
 
       - name: Upload recordings
         if: always()
