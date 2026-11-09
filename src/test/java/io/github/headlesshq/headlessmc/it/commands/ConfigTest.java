@@ -6,6 +6,8 @@ import io.github.headlesshq.headlessmc.it.HmcTable;
 import io.github.headlesshq.headlessmc.it.HmcTest;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 
@@ -65,7 +67,7 @@ class ConfigTest {
     }
 
     @Test
-    void setWritesConfigFile(HmcRunner hmc) {
+    void setWritesConfigFile(HmcRunner hmc) throws IOException {
         CommandResult set = hmc.run("config", "set", "hmc.java.max-scan-depth", "3");
 
         assertThat(set)
@@ -74,7 +76,7 @@ class ConfigTest {
             .hasOutput("Set hmc.java.max-scan-depth to 3");
         assertThat(set.files()).containsOnlyPathsMatching(CONFIG, "hmc/logs/**");
         assertThat(set.files().paths()).contains(CONFIG);
-        assertThatFiles(hmc).hasFileContaining(CONFIG, "\nhmc.java.max-scan-depth=3\n");
+        assertThat(Files.readAllLines(hmc.dir().resolve(CONFIG))).contains("hmc.java.max-scan-depth=3");
 
         CommandResult get = hmc.run("config", "get", "hmc.java.max-scan-depth");
         assertThat(get).succeeded();

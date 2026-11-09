@@ -11,7 +11,7 @@ You need Java 25. Point `HMC_EXECUTABLE` (or the `hmc.executable` system propert
 Against a jar, which is run with `java -jar`:
 
 ```shell
-gh release download --repo headlesshq/headlessmc --pattern headlessmc.jar --dir hmc
+gh release download 3.0.0-RC8 --repo headlesshq/headlessmc --pattern headlessmc.jar --dir hmc
 HMC_EXECUTABLE=hmc/headlessmc.jar ./gradlew test
 ```
 
@@ -20,7 +20,7 @@ The jar is run with the Java the tests run on. Use `HMC_JAVA` or `-Dhmc.java=/pa
 Against a native binary, which is run directly:
 
 ```shell
-gh release download --repo headlesshq/headlessmc --pattern headlessmc-launcher-linux-x64 --dir hmc
+gh release download 3.0.0-RC8 --repo headlesshq/headlessmc --pattern headlessmc-launcher-linux-x64 --dir hmc
 chmod +x hmc/headlessmc-launcher-linux-x64
 ./gradlew test -Dhmc.executable=hmc/headlessmc-launcher-linux-x64
 ```
@@ -39,6 +39,19 @@ Other options, all passed as `-D` to Gradle:
 | `hmc.keep.dirs`      | `false` | Keep each test's temp directory instead of deleting it after the test. |
 | `update.golden`      | `false` | Rewrite the golden files in `src/test/resources/golden/` from the actual output. |
 
+## headlessmc version under test
+
+The tests, and in particular the golden files, are written against a pinned headlessmc release,
+currently **3.0.0-RC8**, set as `HMC_VERSION` in `.github/workflows/test.yml`. To move to a new release,
+bump `HMC_VERSION`, download that release, run `./gradlew test -Dupdate.golden=true` and review the golden diff.
+A weekly scheduled job (also run on `workflow_dispatch`) tests the latest release to catch upstream changes early.
+
+Known headlessmc bugs the tests currently encode or work around:
+
+- `golden/help/headlessmc.txt` contains a stray `test` line below the usage line. Remove it once headlessmc fixes it.
+- `LaunchTest` creates the `mc/resources/...` directories for legacy asset indexes before launching,
+  because headlessmc copies those assets without creating the parent directories.
+
 ## Test cases
 
 The command tests live in `src/test/java/.../it/commands`, one class per command group:
@@ -52,6 +65,7 @@ The command tests live in `src/test/java/.../it/commands`, one class per command
 | `JavaTest`           | `java ls`; remote distributions (`network`)                                     |
 | `VersionTest`        | `version ls`; remote versions and `version install vanilla 1.21.1` (`network`) |
 | `ServerTest`         | `server ls`; `server add vanilla 1.21.1` (`network`)                            |
+| `LaunchTest`         | `launch rd-132211`, checks the downloaded client jar and its sha1 (`network`)   |
 
 Golden files are only used for stable output such as help text. Output that depends on the machine,
 installed Javas or remote data is checked structurally, e.g. by parsing tables with `HmcTable`.
