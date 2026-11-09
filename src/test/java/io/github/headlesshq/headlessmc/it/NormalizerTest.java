@@ -31,6 +31,15 @@ class NormalizerTest {
     }
 
     @Test
+    void carriageReturnOverwritesLineLikeATerminal() {
+        Normalizer normalizer = Normalizer.builder().timestamps(false).build();
+
+        assertThat(normalizer.normalize("Downloading  0%\rDownloading 50%\rDownloading 100%\r\nDone\r\n"))
+            .isEqualTo("Downloading 100%\nDone");
+        assertThat(normalizer.normalize("a\rb\nc\r\n\rd")).isEqualTo("b\nc\nd");
+    }
+
+    @Test
     void replacesTimestampsAndVersions() {
         Normalizer normalizer = Normalizer.builder()
             .hmcVersion("3.0.0-RC8")

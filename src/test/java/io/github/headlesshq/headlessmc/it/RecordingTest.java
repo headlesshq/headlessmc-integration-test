@@ -20,7 +20,7 @@ class RecordingTest {
         Path jar = Files.writeString(dir.resolve("headlessmc.jar"), "");
         Normalizer normalizer = Normalizer.builder().directory(dir, Normalizer.HMC_DIR).hmcVersion("1.2.3").build();
         CommandResult result = new CommandResult(
-            List.of("config", "set", "a b"),
+            List.of("config", "set", "a b", dir.resolve("hmc").toString()),
             0,
             false,
             Duration.ofMillis(42),
@@ -38,7 +38,7 @@ class RecordingTest {
         assertThat(file).isEqualTo(dir.resolve("recordings/linux-x64/RecordingTest.example.json"));
         String json = Files.readString(file);
         assertThat(json)
-            .contains("\"commandLine\" : \"hmc config set \\\"a b\\\"\"")
+            .contains("\"commandLine\" : \"hmc config set \\\"a b\\\" <HMC_DIR>/hmc\"")
             .contains("\"stdout\" : \"HeadlessMc <HMC_VERSION>\\nConfig: <HMC_DIR>/hmc\"")
             .contains("\"change\" : \"added\"")
             .contains("\"type\" : \"jar\"")

@@ -1,0 +1,12 @@
+Usage: headlessmc java [-hV] [-d=<distribution>] [-p=<provider>] [COMMAND]
+Manage java installations.
+  -d, --distribution=<distribution>
+                  The java distribution to use. Default: temurin
+  -h, --help      Show this help message and exit.
+  -p, --provider=<provider>
+                  The provider to use. Default: foojay.io
+  -V, --version   Print version information and exit.
+Commands:
+  install, download  Downloads and installs a java version.
+  list, ls           Lists installed or remote java installations.
+  remove, rm         Removes an installed java version.

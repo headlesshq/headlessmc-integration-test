@@ -44,9 +44,27 @@ public record CommandResult(
     }
 
     /**
+     * @return the arguments with the test directory and other machine specific values normalized.
+     */
+    public List<String> normalizedArgs() {
+        return args.stream().map(normalizer::normalize).toList();
+    }
+
+    /**
      * @return the command as a user would type it, e.g. {@code hmc config ls}.
      */
     public String commandLine() {
+        return commandLine(args);
+    }
+
+    /**
+     * @return the command as a user would type it, with {@link #normalizedArgs()}.
+     */
+    public String normalizedCommandLine() {
+        return commandLine(normalizedArgs());
+    }
+
+    private static String commandLine(List<String> args) {
         StringBuilder builder = new StringBuilder("hmc");
         for (String arg : args) {
             builder.append(' ');

@@ -1,0 +1,2 @@
+Unmatched argument at index 0: 'this-command-does-not-exist'
+Did you mean: headlessmc auth or headlessmc config or headlessmc install?

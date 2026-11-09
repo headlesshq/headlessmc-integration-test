@@ -1,0 +1,14 @@
+Usage: headlessmc version [-fhV] [-d=<customDir>] [-n=<name>] [-u=<customURL>]
+                          [<versionArg>...] [COMMAND]
+Manage versions.
+      [<versionArg>...]   The version to install, e.g. 'fabric 1.21.1'.
+  -d, --dir=<customDir>   Installs the version to a custom directory.
+  -f, --force             Forces reinstallation even if the version is already
+                            installed.
+  -h, --help              Show this help message and exit.
+  -n, --name=<name>       This name is given to the profile/server to install.
+  -u, --url=<customURL>   Uses a custom URL to download the installer.
+  -V, --version           Print version information and exit.
+Commands:
+  install, download  Downloads and installs a version.
+  list, ls           Lists installed or remote versions.

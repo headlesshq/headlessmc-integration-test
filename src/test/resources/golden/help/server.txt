@@ -1,0 +1,10 @@
+Usage: headlessmc server [-hV] [COMMAND]
+Manage servers.
+  -h, --help      Show this help message and exit.
+  -V, --version   Print version information and exit.
+Commands:
+  add, install, download  Downloads and installs a new server.
+  list, ls                Lists your servers.
+  remove, rm              Removes a server.
+  launch                  Launches a server.
+  eula                    Manage the EULA of a server.

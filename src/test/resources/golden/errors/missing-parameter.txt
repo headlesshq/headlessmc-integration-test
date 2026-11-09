@@ -1,0 +1,9 @@
+Missing required parameter: 'property'
+Usage: headlessmc config set [-hV] [--temp] property [value]
+Configures a config property
+      property    The property to set
+      [value]     The value to set
+  -h, --help      Show this help message and exit.
+      --temp      Only use the value until HeadlessMc exits, do not write it to
+                    the config file.
+  -V, --version   Print version information and exit.
