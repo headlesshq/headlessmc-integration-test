@@ -73,7 +73,14 @@ integration-test:
   uses: headlesshq/headlessmc-integration-test/.github/workflows/test.yml@main
   with:
     run-id: ${{ github.run_id }}
+
+merge:
+  needs: [ release-please, build, build-natives, packages, docker-release, integration-test ]
 ```
+
+On release runs, headlessmc's `merge` job replaces the run artifacts with `merged-artifacts` (`delete-merged: true`).
+It must therefore list `integration-test` in `needs`, as above, or the test jobs may fail to download
+`HeadlessMc Launcher files` and the native images after `merge` has deleted them.
 
 Each job uploads its recordings as `recordings-<variant>-<os>-<arch>`, e.g. `recordings-native-linux-x64`,
 and, if it fails, its JUnit reports as `test-reports-<variant>-<os>-<arch>`.
