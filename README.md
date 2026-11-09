@@ -65,14 +65,20 @@ Pushes and pull requests test `HMC_VERSION`. The weekly schedule tests the lates
 | `native-artifact-prefix` | `HeadlessMc Native Image `  | Run artifacts of the natives are named this prefix plus the image name.     |
 | `ref`                    | `main` (`workflow_call`)    | Ref of this repository to run the tests from.                               |
 
-headlessmc can test unreleased builds with a job like this, its token needs `contents: read` and `actions: read`:
+headlessmc can test unreleased builds with a job like this. The job must grant `contents: read` and `actions: read`:
+a called workflow cannot get more permissions than its caller, and GitHub refuses to start the whole calling workflow
+if it asks for more. `repository` makes forks of headlessmc look up the run in their own repository.
 
 ```yaml
 integration-test:
   needs: [ build, build-natives ]
+  permissions:
+    contents: read
+    actions: read
   uses: headlesshq/headlessmc-integration-test/.github/workflows/test.yml@main
   with:
     run-id: ${{ github.run_id }}
+    repository: ${{ github.repository }}
 
 merge:
   needs: [ release-please, build, build-natives, packages, docker-release, integration-test ]
@@ -90,6 +96,9 @@ Known headlessmc bugs the tests currently encode or work around:
 - `golden/help/headlessmc.txt` contains a stray `test` line below the usage line. Remove it once headlessmc fixes it.
 - `LaunchTest` creates the `mc/resources/...` directories for legacy asset indexes before launching,
   because headlessmc copies those assets without creating the parent directories.
+- `JavaTest.listsRemoteDistributions` expects `java ls --remote` to fail on the native image (exit code 1,
+  `InvalidDefinitionException` for `foojay.Result`), because the native image has no reflection config for that class.
+  The test fails once headlessmc fixes it; then drop the native branch.
 
 ## Test cases
 
