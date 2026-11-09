@@ -37,6 +37,9 @@ import java.util.concurrent.TimeoutException;
  *     <li>{@code game}: the game directory ({@code hmc.files.game}),</li>
  * </ul>
  * so commands never touch the real {@code ~/.minecraft} or headlessmc config.
+ * Environment variables that identify a terminal ({@code TERM}, {@code OSTYPE}, {@code COLUMNS}) are not passed on,
+ * because output is never a terminal: with them picocli assumes a pseudo terminal on Windows (e.g. Git Bash),
+ * colours the output and runs {@code stty} to detect the width, which prints an error to stderr.
  * The directory is snapshotted before and after each command to record the file changes.
  */
 public final class HmcRunner {
@@ -59,7 +62,9 @@ public final class HmcRunner {
     private static final long POLL_MILLIS = 50;
     private static final Map<Path, Optional<String>> VERSIONS = new ConcurrentHashMap<>();
     private static final List<String> REMOVED_ENV_PREFIXES = List.of("HMC_", "XDG_");
-    private static final List<String> REMOVED_ENV = List.of("JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS");
+    private static final List<String> REMOVED_ENV = List.of(
+        "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS", "TERM", "OSTYPE", "COLUMNS"
+    );
 
     private final HmcExecutable executable;
     private final Path dir;

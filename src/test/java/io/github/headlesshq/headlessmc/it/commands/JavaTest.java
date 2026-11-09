@@ -59,7 +59,7 @@ class JavaTest {
     @Test
     void listsInstallationFromConfig(HmcRunner hmc) throws IOException {
         Path home = Path.of(System.getProperty("java.home"));
-        hmc.property("hmc.java.versions", home.toString());
+        hmc.property("hmc.java.versions", listElement(home.toString()));
 
         HmcTable table = HmcTable.parse(hmc.run("java", "ls"));
 
@@ -92,6 +92,14 @@ class JavaTest {
             .satisfies(row -> assertThat(row).containsEntry("name", "Temurin").containsEntry("provider", "foojay.io"));
         assertThat(table.column("id")).allMatch(id -> id.matches("[a-z0-9_]+"), "is a distribution id");
         assertThat(result.files()).containsOnlyPathsMatching("hmc/**");
+    }
+
+    /**
+     * Escapes a value for a list config property: headlessmc reads lists with SmallRye Config,
+     * which splits on {@code ,} and drops an unescaped {@code \}, e.g. in a Windows path.
+     */
+    private static String listElement(String value) {
+        return value.replace("\\", "\\\\").replace(",", "\\,");
     }
 
     private static String normalizedHome(HmcRunner hmc, Path home) {

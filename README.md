@@ -109,7 +109,8 @@ Each test gets a fresh temp directory, `<HMC_DIR>`, which is the working directo
 
 so tests never share state or touch your real `~/.minecraft` or headlessmc config.
 Commands run non-interactively with `-Dhmc.jline.enabled=false` and stdin closed.
-`HMC_*`, `XDG_*` and `JAVA_TOOL_OPTIONS`-style environment variables are not passed on.
+`HMC_*`, `XDG_*`, `JAVA_TOOL_OPTIONS`-style and terminal (`TERM`, `OSTYPE`, `COLUMNS`) environment variables are not passed on.
+Otherwise picocli treats Git Bash on Windows as a pseudo terminal, colours the output and prints `stty` errors to stderr.
 Use `hmc.property(key, value)` or `hmc.env(key, value)` to configure further.
 
 `hmc.run(...)` runs one command, `hmc.runAll(...)` a sequence. Each command is killed with its child processes
