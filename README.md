@@ -47,7 +47,7 @@ bump `HMC_VERSION`, download that release, run `./gradlew test -Dupdate.golden=t
 
 ## CI
 
-`.github/workflows/test.yml` runs the suite against `headlessmc.jar` (Temurin 25) on
+`.github/workflows/test.yml` runs the suite against `headlessmc.jar` (JDK 25, Temurin, or the Microsoft Build of OpenJDK on `windows-11-arm`, for which Temurin publishes no JDK 25) on
 `ubuntu-latest`, `ubuntu-24.04-arm`, `windows-latest`, `windows-11-arm`, `macos-latest` and `macos-15-intel`,
 and against the native images on the same runners, except `windows-11-arm`, for which no native image exists.
 A first job looks up which executables exist and drops the matrix entries whose executable is missing,

@@ -107,6 +107,7 @@ jobs:
             {"variant":"native","runner":"macos-latest",     "os":"macos",   "arch":"arm64", "name":"headlessmc-launcher-macos-arm64", "file":"headlessmc-launcher-macos-arm64"},
             {"variant":"native","runner":"macos-15-intel",   "os":"macos",   "arch":"x64",   "name":"headlessmc-launcher-macos-x64",   "file":"headlessmc-launcher-macos-x64"}
           ]'
+          entries="$(jq -c 'map(. + {java: (if .os == "windows" and .arch == "arm64" then "microsoft" else "temurin" end)})' <<< "$entries")"
           all="$entries"
 
           if [[ -n "$RUN_ID" ]]; then
@@ -134,7 +135,7 @@ jobs:
             echo "Testing $REPOSITORY release $TAG"
           fi
 
-          jq -r '.[] | "Testing \(.variant) \(.os)-\(.arch): \(if .artifact == "" then .file else .artifact end)"' <<< "$entries"
+          jq -r '.[] | "Testing \(.variant) \(.os)-\(.arch) (\(.java) 25): \(if .artifact == "" then .file else .artifact end)"' <<< "$entries"
           jq -r --argjson found "$entries" '($found | map("\(.variant)-\(.os)-\(.arch)")) as $keys
             | .[] | select("\(.variant)-\(.os)-\(.arch)" as $k | any($keys[]; . == $k) | not)
             | "::notice::Skipping \(.variant) \(.os)-\(.arch), \(.file) is not available"' <<< "$all"
@@ -166,7 +167,7 @@ jobs:
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
         with:
           java-version: 25
-          distribution: temurin
+          distribution: ${{ matrix.java }}
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
 
       - name: Download ${{ matrix.file }} (${{ needs.resolve.outputs.tag }})
