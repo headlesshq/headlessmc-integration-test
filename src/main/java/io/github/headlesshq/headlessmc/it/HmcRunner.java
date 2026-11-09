@@ -14,12 +14,17 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Runs headlessmc commands non-interactively as subprocesses inside one test directory.
@@ -45,15 +50,21 @@ public final class HmcRunner {
     public static final String USER_HOME = "<USER_HOME>";
 
     private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(120);
+    /**
+     * The version recorded when {@code --version} does not report one.
+     */
+    public static final String UNKNOWN_VERSION = "unknown";
+
     private static final Duration READER_GRACE = Duration.ofSeconds(10);
-    private static final Map<Path, String> VERSIONS = new ConcurrentHashMap<>();
+    private static final long POLL_MILLIS = 50;
+    private static final Map<Path, Optional<String>> VERSIONS = new ConcurrentHashMap<>();
     private static final List<String> REMOVED_ENV_PREFIXES = List.of("HMC_", "XDG_");
     private static final List<String> REMOVED_ENV = List.of("JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS");
 
     private final HmcExecutable executable;
     private final Path dir;
     private final Duration timeout;
-    private final String version;
+    private final Optional<String> version;
     private final Normalizer normalizer;
     private final Map<String, String> properties = new LinkedHashMap<>();
     private final Map<String, String> environment = new LinkedHashMap<>();
@@ -80,7 +91,7 @@ public final class HmcRunner {
         this(executable, dir, timeout, versionOf(executable));
     }
 
-    private HmcRunner(HmcExecutable executable, Path dir, Duration timeout, String version) {
+    private HmcRunner(HmcExecutable executable, Path dir, Duration timeout, Optional<String> version) {
         this.executable = executable;
         this.dir = dir.toAbsolutePath().normalize();
         this.timeout = timeout;
@@ -99,7 +110,7 @@ public final class HmcRunner {
             normalizerBuilder.directory(userHome, USER_HOME);
         }
 
-        this.normalizer = normalizerBuilder.hmcVersion(version).build();
+        this.normalizer = normalizerBuilder.hmcVersion(version.orElse(null)).build();
         properties.put("hmc.jline.enabled", "false");
         properties.put("hmc.files.location", hmcDir().toString());
         properties.put("hmc.files.mc", mcDir().toString());
@@ -140,7 +151,8 @@ public final class HmcRunner {
     }
 
     /**
-     * Runs one command. The process is killed with its descendants if it exceeds the timeout.
+     * Runs one command. The process is killed with its descendants if it exceeds the timeout,
+     * and descendants still alive after it exited are killed before the output and files are collected.
      *
      * @param timeout how long the command may run.
      * @param args    the headlessmc arguments.
@@ -170,14 +182,16 @@ public final class HmcRunner {
         ByteArrayOutputStream stderr = new ByteArrayOutputStream();
         Thread outReader = pump(process.getInputStream(), stdout);
         Thread errReader = pump(process.getErrorStream(), stderr);
+        Set<ProcessHandle> descendants = new HashSet<>();
         boolean timedOut;
         try {
             process.getOutputStream().close();
-            timedOut = !process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS);
+            timedOut = !waitFor(process, timeout, descendants);
             if (timedOut) {
                 kill(process);
             }
 
+            killSurvivors(descendants);
             outReader.join(READER_GRACE);
             errReader.join(READER_GRACE);
         } catch (IOException e) {
@@ -249,6 +263,48 @@ public final class HmcRunner {
         }
     }
 
+    /**
+     * Waits for the process to exit while remembering its descendants, which cannot be listed
+     * once the process has exited and its orphans were reparented.
+     */
+    private static boolean waitFor(Process process, Duration timeout, Set<ProcessHandle> descendants)
+        throws InterruptedException {
+        long deadline = System.nanoTime() + timeout.toNanos();
+        while (true) {
+            process.descendants().forEach(descendants::add);
+            long remaining = TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime());
+            if (remaining <= 0) {
+                return !process.isAlive();
+            }
+
+            if (process.waitFor(Math.min(remaining, POLL_MILLIS), TimeUnit.MILLISECONDS)) {
+                return true;
+            }
+        }
+    }
+
+    private static void killSurvivors(Set<ProcessHandle> descendants) {
+        List<ProcessHandle> survivors = new ArrayList<>();
+        for (ProcessHandle handle : descendants) {
+            if (handle.isAlive()) {
+                handle.descendants().forEach(survivors::add);
+                survivors.add(handle);
+            }
+        }
+
+        survivors.forEach(ProcessHandle::destroyForcibly);
+        for (ProcessHandle handle : survivors) {
+            try {
+                handle.onExit().get(READER_GRACE.toMillis(), TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            } catch (ExecutionException | TimeoutException ignored) {
+                continue;
+            }
+        }
+    }
+
     private static void kill(Process process) {
         process.descendants().forEach(ProcessHandle::destroyForcibly);
         process.destroyForcibly();
@@ -299,10 +355,10 @@ public final class HmcRunner {
     }
 
     /**
-     * @return the version reported by {@code --version}, or {@code unknown}.
+     * @return the version reported by {@code --version}, or {@value #UNKNOWN_VERSION}.
      */
     public String version() {
-        return version;
+        return version.orElse(UNKNOWN_VERSION);
     }
 
     /**
@@ -360,22 +416,21 @@ public final class HmcRunner {
      * The result is cached per executable.
      *
      * @param executable the executable.
-     * @return the first line printed by {@code --version}, or {@code unknown}.
+     * @return the first non-empty line printed by {@code --version}, or empty if it failed or printed nothing.
      */
-    public static String versionOf(HmcExecutable executable) {
+    public static Optional<String> versionOf(HmcExecutable executable) {
         return VERSIONS.computeIfAbsent(executable.path(), path -> {
             Path tmp = null;
             try {
                 tmp = Files.createTempDirectory("hmc-it-version-");
-                CommandResult result = new HmcRunner(executable, tmp, Duration.ofSeconds(60), null).execute(
+                CommandResult result = new HmcRunner(executable, tmp, Duration.ofSeconds(60), Optional.empty()).execute(
                     Duration.ofSeconds(60), List.of("--version")
                 );
                 if (result.exitCode() == 0) {
-                    return result.stdout().lines().map(String::strip).filter(line -> !line.isEmpty())
-                        .findFirst().orElse("unknown");
+                    return result.stdout().lines().map(String::strip).filter(line -> !line.isEmpty()).findFirst();
                 }
 
-                return "unknown";
+                return Optional.<String>empty();
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             } finally {
