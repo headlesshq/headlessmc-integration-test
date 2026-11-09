@@ -35,7 +35,7 @@ def hmcExecutable = providers.systemProperty('hmc.executable')
 def forwardedProperties = ['hmc.java', 'hmc.timeout', 'hmc.keep.dirs', 'update.golden']
 def recordingsDir = layout.buildDirectory.dir('recordings')
 
-tasks.named('test', Test) {
+tasks.withType(Test).configureEach {
     useJUnitPlatform()
 
     systemProperty 'hmc.recordings.dir', recordingsDir.get().asFile.absolutePath
@@ -61,5 +61,19 @@ tasks.named('test', Test) {
     testLogging {
         events 'failed', 'skipped'
         exceptionFormat = 'full'
+    }
+}
+
+tasks.named('test', Test) {
+    description = 'Runs all tests, including the ones tagged network.'
+}
+
+tasks.register('offlineTest', Test) {
+    description = 'Runs all tests except the ones tagged network.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        excludeTags 'network'
     }
 }

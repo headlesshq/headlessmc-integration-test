@@ -1,0 +1,10 @@
+Usage: headlessmc mod [-hV] [COMMAND]
+Manage mods.
+  -h, --help      Show this help message and exit.
+  -V, --version   Print version information and exit.
+Commands:
+  add, download, install  Downloads and adds a mod to a profile.
+  list, ls                Lists the installed mods of a profile.
+  remove, rm              Removes an installed mod from a profile.
+  search                  Searches for mods on a distribution platform.
+  worlds                  Lists the worlds that datapacks can be added to.

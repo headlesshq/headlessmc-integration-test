@@ -1,0 +1,26 @@
+Usage: headlessmc launch [-hV] [-eula] [-lwjgl] [--offline] [-g=<gameArgs>]
+                         [-j=<jvmArgs>] [--packwiz=<packwiz>]
+                         [-res=<resolution>] [-ret=<retries>]
+                         [--server=<server>] [--patchers=<patchers>[,
+                         <patchers>...]]... [profile...]
+Launches the game.
+      [profile...]           The profile/server/version to launch
+      -eula, --eula-accept   Automatically accepts the EULA if needed.
+  -g, --game=<gameArgs>      Arguments for the started game, e.g. --game
+                               "--quickPlayRealms <realms-server>"
+  -h, --help                 Show this help message and exit.
+  -j, --jvm=<jvmArgs>        Arguments for the started JVM, e.g. --jvm "-Xmx2G
+                               -Dproperty=value"
+      -lwjgl, --headless     Patches LWJGL to not render anything.
+      --offline              Launches with an offline account.
+      --packwiz=<packwiz>    Path to a pack.toml packwiz modpack file, or a
+                               directory containing one, to launch.
+      --patchers=<patchers>[,<patchers>...]
+                             Comma-separated list of patchers to use.
+      -res, --resolution=<resolution>
+                             Resolution to start the client with,
+                               <width>x<height>, e.g. 800x600
+      -ret, --retries=<retries>
+                             How many times to retry launching the process.
+      --server=<server>      Joins a server immediately after launching the game
+  -V, --version              Print version information and exit.

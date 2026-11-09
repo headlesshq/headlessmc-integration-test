@@ -1,0 +1,10 @@
+Usage: headlessmc profile [-hV] [COMMAND]
+Manage launch profiles.
+  -h, --help      Show this help message and exit.
+  -V, --version   Print version information and exit.
+Commands:
+  add         Adds a new profile.
+  list, ls    Lists your profiles.
+  remove, rm  Removes a profile.
+  edit        Edits a profile
+  launch      Launches a profile.

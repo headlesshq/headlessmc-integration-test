@@ -1,0 +1,13 @@
+Usage: headlessmc account [-hV] [-p=<provider>] [COMMAND]
+Manage your account.
+  -h, --help      Show this help message and exit.
+  -p, --provider=<provider>
+                  The authentication provider to use (default, offline,
+                    yggdrasil, ...)
+  -V, --version   Print version information and exit.
+Commands:
+  login       Log into an account.
+  list, ls    List your accounts.
+  remove, rm  Removes an account.
+  select      Select the primary account to use.
+  refresh     Refreshes an accounts token.

@@ -28,6 +28,9 @@ chmod +x hmc/headlessmc-launcher-linux-x64
 On Windows use `headlessmc-launcher-windows-x64.exe`, the `.exe` suffix may be omitted.
 Relative paths are resolved against the project directory.
 
+`./gradlew test` runs all tests. Tests that need the internet (Mojang, foojay.io, ...) are tagged `network`;
+`./gradlew offlineTest` runs everything except them.
+
 Other options, all passed as `-D` to Gradle:
 
 | Property             | Default | Description                                                             |
@@ -35,6 +38,23 @@ Other options, all passed as `-D` to Gradle:
 | `hmc.timeout`        | `120`   | Default timeout per command in seconds.                                 |
 | `hmc.keep.dirs`      | `false` | Keep each test's temp directory instead of deleting it after the test. |
 | `update.golden`      | `false` | Rewrite the golden files in `src/test/resources/golden/` from the actual output. |
+
+## Test cases
+
+The command tests live in `src/test/java/.../it/commands`, one class per command group:
+
+| Class                | Covers                                                                          |
+|----------------------|---------------------------------------------------------------------------------|
+| `HelpTest`           | `help`, `--help`, `help <command>` for every top-level command and alias        |
+| `VersionInfoTest`    | `--version`, `-V`                                                               |
+| `UnknownCommandTest` | unknown commands and subcommands, missing parameters (exit code 2)              |
+| `ConfigTest`         | `config ls`, `config get`, `config set` and the written `hmc/config.properties` |
+| `JavaTest`           | `java ls`; remote distributions (`network`)                                     |
+| `VersionTest`        | `version ls`; remote versions and `version install vanilla 1.21.1` (`network`) |
+| `ServerTest`         | `server ls`; `server add vanilla 1.21.1` (`network`)                            |
+
+Golden files are only used for stable output such as help text. Output that depends on the machine,
+installed Javas or remote data is checked structurally, e.g. by parsing tables with `HmcTable`.
 
 ## Writing tests
 
@@ -53,6 +73,16 @@ class ConfigTest {
 ```
 
 `assertThat` and `assertThatFiles` come from `HmcAssertions`.
+Tag tests that need the internet with `@Tag("network")`.
+
+List commands print tables. `HmcTable.parse(result)` splits them by the header's column positions
+before normalizing each cell, so cells can contain spaces and long directories do not shift the columns:
+
+```java
+HmcTable table = HmcTable.parse(hmc.run("server", "ls"));
+assertThat(table.columns()).containsExactly("name", "version", "directory");
+assertThat(table.row("name", "test-server")).isPresent();
+```
 
 Each test gets a fresh temp directory, `<HMC_DIR>`, which is the working directory of every command:
 
@@ -73,7 +103,8 @@ when it exceeds its timeout, and the directory is snapshotted before and after i
 modified and deleted files with their size and sha256.
 
 Output assertions compare normalized output: the temp dir becomes `<HMC_DIR>`, the real user home `<USER_HOME>`,
-path separators after these become `/`, line endings `\n`, timestamps `<TIMESTAMP>`/`<TIME>`,
+path separators after these become `/`, line endings `\n` (a lone `\r` overwrites the line like in a terminal,
+so only the final state of a progress bar remains), timestamps `<TIMESTAMP>`/`<TIME>`,
 the headlessmc version `<HMC_VERSION>`, and colour codes and trailing whitespace are removed.
 
 ## Recordings
@@ -108,5 +139,5 @@ e.g. `build/recordings/linux-x64/HelpTest.help.json`:
 }
 ```
 
-Output in recordings is normalized. Modified files also carry `previousSize` and `previousSha256`,
+Output and command arguments in recordings are normalized. Modified files also carry `previousSize` and `previousSha256`,
 deleted files only those. The format is modelled by `Recording`, which can read recordings back.

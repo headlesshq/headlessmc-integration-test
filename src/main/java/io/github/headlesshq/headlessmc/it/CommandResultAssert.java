@@ -115,6 +115,30 @@ public final class CommandResultAssert extends AbstractAssert<CommandResultAsser
     }
 
     /**
+     * Compares the normalized stderr with a golden file.
+     *
+     * @param name the golden file name, e.g. {@code unknown-command.txt}.
+     * @return this assertion.
+     * @see Golden
+     */
+    public CommandResultAssert hasStderrMatchingGolden(String name) {
+        isNotNull();
+        Golden.assertMatches(name, actual.normalizedStderr());
+        return this;
+    }
+
+    /**
+     * Checks that the regex is found somewhere in the normalized stderr, in multiline mode.
+     *
+     * @param regex the regex.
+     * @return this assertion.
+     */
+    public CommandResultAssert hasStderrMatching(String regex) {
+        stderr().containsPattern(Pattern.compile(regex, Pattern.MULTILINE));
+        return this;
+    }
+
+    /**
      * @return this assertion.
      */
     public CommandResultAssert hasEmptyStderr() {

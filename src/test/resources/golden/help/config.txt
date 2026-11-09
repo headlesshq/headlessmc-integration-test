@@ -1,0 +1,8 @@
+Usage: headlessmc config [-hV] [COMMAND]
+Configures HeadlessMc
+  -h, --help      Show this help message and exit.
+  -V, --version   Print version information and exit.
+Commands:
+  list, ls  Shows configurable config properties
+  set       Configures a config property
+  get       Shows a specific config property
