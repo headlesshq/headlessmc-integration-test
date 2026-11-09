@@ -17,7 +17,9 @@ import java.util.regex.Pattern;
  * Makes command output comparable across machines, platforms and runs, for assertions and docs.
  * Rules are applied in this order:
  * <ol>
- *     <li>{@code \r\n} and {@code \r} line endings become {@code \n}.</li>
+ *     <li>{@code \r\n} line endings become {@code \n}. A lone {@code \r} returns to the start of the line like
+ *     in a terminal, so only the text after the last {@code \r} of a line is kept, e.g. the final state of a
+ *     progress bar.</li>
  *     <li>ANSI escape sequences (colour codes) are removed.</li>
  *     <li>Registered directories are replaced by their token, e.g. {@code <HMC_DIR>},
  *     and path separators following a token become {@code /}.</li>
@@ -150,7 +152,7 @@ public final class Normalizer {
          */
         public Normalizer build() {
             List<UnaryOperator<String>> rules = new ArrayList<>();
-            rules.add(text -> text.replace("\r\n", "\n").replace('\r', '\n'));
+            rules.add(Builder::normalizeLineEndings);
             rules.add(text -> ANSI.matcher(text).replaceAll(""));
             directoryRules(rules);
             if (timestamps) {
@@ -208,6 +210,30 @@ public final class Normalizer {
             result.add(trimmed.replace('\\', '/'));
             result.add(trimmed.replace('/', '\\'));
             result.add(trimmed.replace("\\", "\\\\"));
+        }
+
+        private static String normalizeLineEndings(String text) {
+            String unified = text.replace("\r\n", "\n");
+            if (unified.indexOf('\r') < 0) {
+                return unified;
+            }
+
+            StringBuilder result = new StringBuilder(unified.length());
+            int start = 0;
+            while (start <= unified.length()) {
+                int end = unified.indexOf('\n', start);
+                String line = unified.substring(start, end < 0 ? unified.length() : end);
+                String visible = line.endsWith("\r") ? line.substring(0, line.length() - 1) : line;
+                result.append(visible.substring(visible.lastIndexOf('\r') + 1));
+                if (end < 0) {
+                    break;
+                }
+
+                result.append('\n');
+                start = end + 1;
+            }
+
+            return result.toString();
         }
 
         private static String stripTrailingNewlines(String text) {

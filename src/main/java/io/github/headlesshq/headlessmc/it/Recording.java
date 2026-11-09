@@ -61,8 +61,8 @@ public record Recording(
     /**
      * One command of a recording.
      *
-     * @param command     the headlessmc arguments.
-     * @param commandLine the command as typed by a user, e.g. {@code hmc help}.
+     * @param command     the normalized headlessmc arguments.
+     * @param commandLine the normalized command as typed by a user, e.g. {@code hmc help}.
      * @param exitCode    the exit code, {@code -1} if timed out.
      * @param timedOut    whether the command was killed after its timeout.
      * @param durationMs  how long the command ran in milliseconds.
@@ -86,8 +86,8 @@ public record Recording(
          */
         public static Step of(CommandResult result) {
             return new Step(
-                result.args(),
-                result.commandLine(),
+                result.normalizedArgs(),
+                result.normalizedCommandLine(),
                 result.exitCode(),
                 result.timedOut(),
                 result.duration().toMillis(),
