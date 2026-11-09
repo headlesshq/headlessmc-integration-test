@@ -1,0 +1,65 @@
+plugins {
+    id 'java-library'
+}
+
+group = 'io.github.headlesshq'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    api libs.jackson
+    api libs.assertj
+    api platform(libs.junit.bom)
+    api libs.junit.jupiter.api
+
+    testImplementation libs.junit.jupiter
+    testRuntimeOnly libs.junit.launcher
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs.add('-Xlint:all')
+}
+
+def hmcExecutable = providers.systemProperty('hmc.executable')
+    .orElse(providers.environmentVariable('HMC_EXECUTABLE'))
+    .map { rootProject.file(it).absolutePath }
+def forwardedProperties = ['hmc.java', 'hmc.timeout', 'hmc.keep.dirs', 'update.golden']
+def recordingsDir = layout.buildDirectory.dir('recordings')
+
+tasks.named('test', Test) {
+    useJUnitPlatform()
+
+    systemProperty 'hmc.recordings.dir', recordingsDir.get().asFile.absolutePath
+    systemProperty 'hmc.golden.dir', file('src/test/resources/golden').absolutePath
+    if (hmcExecutable.isPresent()) {
+        systemProperty 'hmc.executable', hmcExecutable.get()
+        inputs.file(hmcExecutable.get()).withPropertyName('hmcExecutable')
+    }
+
+    forwardedProperties.each { name ->
+        def value = providers.systemProperty(name)
+        if (value.isPresent()) {
+            systemProperty name, value.get()
+        }
+    }
+
+    if (providers.systemProperty('update.golden').map { it.toBoolean() }.getOrElse(false)) {
+        outputs.upToDateWhen { false }
+    }
+
+    outputs.dir(recordingsDir).withPropertyName('recordings')
+
+    testLogging {
+        events 'failed', 'skipped'
+        exceptionFormat = 'full'
+    }
+}
