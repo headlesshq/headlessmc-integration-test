@@ -202,9 +202,11 @@ public final class CommandDocs {
             if (structures.size() == 1) {
                 steps(runs, out);
             } else {
+                boolean first = true;
                 for (List<Run> group : structures.values()) {
                     out.line();
-                    out.line("=== \"" + tab(group, runs) + "\"");
+                    out.line(tabHeader(tab(group, runs), first));
+                    first = false;
                     steps(group, out.indented());
                 }
             }
@@ -221,13 +223,23 @@ public final class CommandDocs {
             if (variants.size() == 1) {
                 step(runs.getFirst().step(i), out);
             } else {
+                boolean first = true;
                 for (List<Run> variant : variants.values()) {
                     out.line();
-                    out.line("=== \"" + tab(variant, runs) + "\"");
+                    out.line(tabHeader(tab(variant, runs), first));
+                    first = false;
                     step(variant.getFirst().step(i), out.indented());
                 }
             }
         }
+    }
+
+    /**
+     * Returns the header of a content tab. The first tab of a group uses {@code ===!}, which makes pymdownx.tabbed
+     * start a new tab set instead of appending to the tabs of a preceding step.
+     */
+    private static String tabHeader(String title, boolean first) {
+        return (first ? "===! \"" : "=== \"") + title + "\"";
     }
 
     private static void step(Recording.Step step, Out out) {

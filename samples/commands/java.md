@@ -8,7 +8,7 @@
 
 `JavaTest.listsInstallationFromConfig`
 
-=== "jar linux-x64"
+===! "jar linux-x64"
 
     ```console
     $ hmc java ls
@@ -48,7 +48,7 @@
 
 `JavaTest.listsInstallations`
 
-=== "jar linux-x64"
+===! "jar linux-x64"
 
     ```console
     $ hmc java ls

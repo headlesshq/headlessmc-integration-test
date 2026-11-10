@@ -97,7 +97,7 @@ class CommandDocsTest {
         assertThat(Files.readString(dir.resolve("out/java.md"))).endsWith("""
             `JavaTest.ls`
 
-            === "jar linux-x64, jar windows-x64"
+            ===! "jar linux-x64, jar windows-x64"
 
                 ```console
                 $ hmc java ls
@@ -127,6 +127,44 @@ class CommandDocsTest {
     }
 
     @Test
+    void startsNewTabSetForEachConsecutiveDifferingStep() throws IOException {
+        record("jar", "linux", "x64", "ConfigTest.setThenGet", step("config set a 1", 0, "set linux"), step("config get a", 0, "get linux"));
+        record("native", "windows", "x64", "ConfigTest.setThenGet", step("config set a 1", 0, "set windows"), step("config get a", 0, "get windows"));
+
+        CommandDocs.generate(dir.resolve("recordings"), dir.resolve("out"));
+
+        String page = Files.readString(dir.resolve("out/config.md"));
+        assertThat(page)
+            .contains("""
+                ===! "jar linux-x64"
+
+                    ```console
+                    $ hmc config set a 1
+                    set linux
+                    ```
+
+                    No files changed.
+
+                === "native windows-x64"
+
+                    ```console
+                    $ hmc config set a 1
+                    set windows
+                    ```
+
+                    No files changed.
+
+                ===! "jar linux-x64"
+
+                    ```console
+                    $ hmc config get a
+                    get linux
+                    ```
+                """)
+            .contains("=== \"native windows-x64\"\n\n    ```console\n    $ hmc config get a\n");
+    }
+
+    @Test
     void addsTabsPerPlatformIfCommandsDiffer() throws IOException {
         record("jar", "linux", "x64", "LaunchTest.launch", step("launch a", 0, "a"));
         record("native", "linux", "x64", "LaunchTest.launch", step("launch b", 0, "b"));
@@ -137,7 +175,7 @@ class CommandDocsTest {
         String page = Files.readString(dir.resolve("out/launch.md"));
         assertThat(page)
             .contains("!!! note \"Only recorded on native linux-x64\"")
-            .contains("=== \"jar linux-x64\"\n\n    ```console\n    $ hmc launch a\n")
+            .contains("===! \"jar linux-x64\"\n\n    ```console\n    $ hmc launch a\n")
             .contains("=== \"native linux-x64\"\n\n    ```console\n    $ hmc launch b\n");
     }
 
@@ -207,7 +245,7 @@ class CommandDocsTest {
 
         assertThat(Files.readString(dir.resolve("out/java.md")))
             .contains("!!! note \"Only recorded on jar\"")
-            .contains("=== \"all except jar windows-x64\"")
+            .contains("===! \"all except jar windows-x64\"")
             .contains("=== \"jar windows-x64\"");
     }
 

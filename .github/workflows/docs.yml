@@ -90,7 +90,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: command-docs
-          path: docs/generated/commands
+          path: docs/commands
           if-no-files-found: error
 
       - name: Build site

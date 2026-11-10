@@ -5,4 +5,4 @@ out/
 *.iml
 .vscode/
 hmc/
-docs/generated/
+docs/commands/

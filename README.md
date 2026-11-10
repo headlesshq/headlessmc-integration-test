@@ -208,7 +208,7 @@ deleted files only those. The format is modelled by `Recording`, which can read 
 ## Docs
 
 `./gradlew generateDocs` turns the recordings into Markdown for [mkdocs-material](https://squidfunk.github.io/mkdocs-material/):
-one page per test class in `docs/generated/commands/`, e.g. `ConfigTest` becomes `config.md`, plus an `index.md` linking all pages.
+one page per test class in `docs/commands/`, e.g. `ConfigTest` becomes `config.md`, plus an `index.md` linking all pages.
 Each test is a section showing its commands, their normalized output, the exit code if it is not 0,
 and a tree of the files each command added, modified or deleted. Directories below the top level with more than
 20 changed files, e.g. downloaded assets, are collapsed into one line. See `samples/commands/` for pages generated
@@ -219,7 +219,7 @@ The generator reads every `*.json` below `build/recordings`, or below `-Pdocs.re
 Other platforms get their own [content tab](https://squidfunk.github.io/mkdocs-material/reference/content-tabs/)
 for a command only where their output, exit code or changed paths differ. Differences in how many spaces separate
 table columns and in file sizes and hashes are ignored, they depend on the machine. The output is sorted and only
-depends on the recordings, so regenerating unchanged recordings gives no diff. `docs/generated/` is not checked in.
+depends on the recordings, so regenerating unchanged recordings gives no diff. `docs/commands/` is not checked in.
 
 To preview the site locally:
 
