@@ -1,0 +1,120 @@
+name: Docs
+
+on:
+  workflow_run:
+    workflows: [ Test ]
+    types: [ completed ]
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      run-id:
+        description: Test workflow run to take the recordings from, empty for the latest successful run on main
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build docs
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || (github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Resolve test run
+        id: run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.run-id || github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$RUN_ID" ]]; then
+            RUN_ID="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow test.yml --branch main --event push --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+          fi
+          if [[ -z "$RUN_ID" || "$RUN_ID" == "null" ]]; then
+            echo "::error::No successful Test run on main found"
+            exit 1
+          fi
+          sha="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .head_sha)"
+          echo "Using recordings of run $RUN_ID ($sha)"
+          {
+            echo "id=$RUN_ID"
+            echo "sha=$sha"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ steps.run.outputs.sha }}
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
+        with:
+          java-version: 25
+          distribution: temurin
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: 3.x
+
+      - name: Download recordings
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: recordings-*
+          path: build/recordings
+          run-id: ${{ steps.run.outputs.id }}
+          github-token: ${{ github.token }}
+
+      - name: Check canonical recordings
+        run: |
+          if [[ ! -d build/recordings/recordings-jar-linux-x64 ]]; then
+            echo "::error::recordings-jar-linux-x64 is missing, the docs show its output by default"
+            exit 1
+          fi
+          find build/recordings -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort
+
+      - name: Generate docs
+        run: ./gradlew generateDocs --stacktrace
+
+      - name: Upload generated Markdown
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: command-docs
+          path: docs/generated/commands
+          if-no-files-found: error
+
+      - name: Build site
+        run: |
+          pip install -r docs/requirements.txt
+          mkdocs build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: build/site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5
