@@ -204,3 +204,35 @@ e.g. `build/recordings/linux-x64/HelpTest.help.json`:
 
 Output and command arguments in recordings are normalized. Modified files also carry `previousSize` and `previousSha256`,
 deleted files only those. The format is modelled by `Recording`, which can read recordings back.
+
+## Docs
+
+`./gradlew generateDocs` turns the recordings into Markdown for [mkdocs-material](https://squidfunk.github.io/mkdocs-material/):
+one page per test class in `docs/commands/`, e.g. `ConfigTest` becomes `config.md`, plus an `index.md` linking all pages.
+Each test is a section showing its commands, their normalized output, the exit code if it is not 0,
+and a tree of the files each command added, modified or deleted. Directories below the top level with more than
+20 changed files, e.g. downloaded assets, are collapsed into one line. See `samples/commands/` for pages generated
+from the jar and the linux-x64 native image.
+
+The generator reads every `*.json` below `build/recordings`, or below `-Pdocs.recordings=<dir>`, so the downloaded
+`recordings-*` artifacts of a CI run can be unpacked side by side. The output of `jar linux-x64` (`ubuntu-latest`) is shown.
+Other platforms get their own [content tab](https://squidfunk.github.io/mkdocs-material/reference/content-tabs/)
+for a command only where their output, exit code or changed paths differ. Differences in how many spaces separate
+table columns and in file sizes and hashes are ignored, they depend on the machine. The output is sorted and only
+depends on the recordings, so regenerating unchanged recordings gives no diff. `docs/commands/` is not checked in.
+
+To preview the site locally:
+
+```shell
+./gradlew generateDocs -Pdocs.recordings=path/to/recordings
+pip install -r docs/requirements.txt
+mkdocs serve
+```
+
+`.github/workflows/docs.yml` runs after each successful `Test` run on `main` triggered by a push or by the weekly
+schedule (which picks up new headlessmc releases): it downloads all recordings of that run, runs `generateDocs`
+and `mkdocs build`, and deploys the site to GitHub Pages
+(Settings → Pages → Source: GitHub Actions). It also uploads the Markdown as the `command-docs` artifact,
+which headlessmc's docs can download and include. `workflow_dispatch` takes the `run-id` of a `Test` run,
+by default the latest successful push or scheduled one on `main`.
+`Test` runs started via `workflow_dispatch` are skipped, since they may test unreleased headlessmc artifacts.

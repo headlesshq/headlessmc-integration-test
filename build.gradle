@@ -77,3 +77,20 @@ tasks.register('offlineTest', Test) {
         excludeTags 'network'
     }
 }
+
+def docsRecordingsDir = providers.gradleProperty('docs.recordings')
+    .map { rootProject.file(it) }
+    .orElse(recordingsDir.map { it.asFile })
+def docsOutputDir = layout.projectDirectory.dir('docs/commands')
+
+tasks.register('generateDocs', JavaExec) {
+    description = 'Generates docs/commands from the recordings in build/recordings (or -Pdocs.recordings).'
+    group = 'documentation'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'io.github.headlesshq.headlessmc.it.docs.CommandDocs'
+    inputs.files(docsRecordingsDir.map { fileTree(it) { include '**/*.json' } })
+        .withPropertyName('recordings')
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    outputs.dir(docsOutputDir).withPropertyName('docs')
+    argumentProviders.add({ [docsRecordingsDir.get().absolutePath, docsOutputDir.asFile.absolutePath] } as CommandLineArgumentProvider)
+}
