@@ -229,8 +229,10 @@ pip install -r docs/requirements.txt
 mkdocs serve
 ```
 
-`.github/workflows/docs.yml` runs after each successful `Test` run of a push to `main`: it downloads all recordings
-of that run, runs `generateDocs` and `mkdocs build`, and deploys the site to GitHub Pages
+`.github/workflows/docs.yml` runs after each successful `Test` run on `main` triggered by a push or by the weekly
+schedule (which picks up new headlessmc releases): it downloads all recordings of that run, runs `generateDocs`
+and `mkdocs build`, and deploys the site to GitHub Pages
 (Settings → Pages → Source: GitHub Actions). It also uploads the Markdown as the `command-docs` artifact,
 which headlessmc's docs can download and include. `workflow_dispatch` takes the `run-id` of a `Test` run,
-by default the latest successful one on `main`.
+by default the latest successful push or scheduled one on `main`.
+`Test` runs started via `workflow_dispatch` are skipped, since they may test unreleased headlessmc artifacts.

@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       run-id:
-        description: Test workflow run to take the recordings from, empty for the latest successful run on main
+        description: Test workflow run to take the recordings from, empty for the latest successful push or scheduled run on main
         type: string
         default: ''
 
@@ -24,7 +24,7 @@ jobs:
     name: Build docs
     if: >-
       github.event_name == 'workflow_dispatch'
-      || (github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success')
+      || (contains(fromJSON('["push","schedule"]'), github.event.workflow_run.event) && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -42,10 +42,11 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "$RUN_ID" ]]; then
-            RUN_ID="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow test.yml --branch main --event push --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+            RUN_ID="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow test.yml --branch main --status success --limit 50 --json databaseId,event \
+              --jq '[.[] | select(.event == "push" or .event == "schedule")][0].databaseId // empty')"
           fi
           if [[ -z "$RUN_ID" || "$RUN_ID" == "null" ]]; then
-            echo "::error::No successful Test run on main found"
+            echo "::error::No successful push or scheduled Test run on main found"
             exit 1
           fi
           sha="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .head_sha)"
