@@ -15,6 +15,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 class CommandDocsTest {
     private static final FileChange CONFIG = new FileChange("hmc/config.properties", FileChange.Kind.ADDED, 10L, "a", null, null);
 
+    private static final List<String> CI_LABELS = List.of(
+        "jar linux-x64", "jar linux-arm64", "jar windows-x64", "jar windows-arm64", "jar macos-arm64", "jar macos-x64",
+        "native linux-x64", "native linux-arm64", "native windows-x64", "native macos-arm64", "native macos-x64"
+    );
+
     @TempDir
     Path dir;
 
@@ -158,6 +163,52 @@ class CommandDocsTest {
         CommandDocs.generate(dir.resolve("recordings"), dir.resolve("out"));
 
         assertThat(Files.readString(dir.resolve("out/help.md"))).contains("````console\n$ hmc help\n```\ncode\n```\n````\n");
+    }
+
+    @Test
+    void collapsesTabTitlesWithoutHidingPlatforms() {
+        List<String> nativeWindows = List.of("native windows-x64");
+        List<String> others = CI_LABELS.stream().filter(label -> !nativeWindows.contains(label)).toList();
+        List<String> jar = CI_LABELS.stream().filter(label -> label.startsWith("jar ")).toList();
+        List<String> nativeImages = CI_LABELS.stream().filter(label -> label.startsWith("native ")).toList();
+
+        assertThat(CommandDocs.tabTitle(others, CI_LABELS)).isEqualTo("all except native windows-x64");
+        assertThat(CommandDocs.tabTitle(nativeWindows, CI_LABELS)).isEqualTo("native windows-x64");
+        assertThat(CommandDocs.tabTitle(jar, CI_LABELS)).isEqualTo("jar (all)");
+        assertThat(CommandDocs.tabTitle(nativeImages, CI_LABELS)).isEqualTo("native (all)");
+        assertThat(CommandDocs.tabTitle(List.of("jar linux-x64", "jar linux-arm64", "jar macos-arm64", "native linux-x64"), CI_LABELS))
+            .isEqualTo("jar linux-x64, jar linux-arm64, jar macos-arm64, native linux-x64");
+        assertThat(CommandDocs.tabTitle(List.of("jar windows-x64", "jar windows-arm64"), CI_LABELS.subList(0, 6)))
+            .isEqualTo("jar windows-arm64, jar windows-x64");
+    }
+
+    @Test
+    void notesOnWhichPlatformsTestWasRecordedWithoutHidingPlatforms() {
+        List<String> jar = CI_LABELS.stream().filter(label -> label.startsWith("jar ")).toList();
+        List<String> windows = CI_LABELS.stream().filter(label -> label.contains("windows")).toList();
+
+        assertThat(CommandDocs.recordedOn(jar, CI_LABELS)).isEqualTo("Only recorded on jar");
+        assertThat(CommandDocs.recordedOn(CI_LABELS.subList(0, 10), CI_LABELS)).isEqualTo("Not recorded on native macos-x64");
+        assertThat(CommandDocs.recordedOn(windows, CI_LABELS)).isEqualTo("Only recorded on jar windows-arm64, jar windows-x64, native windows-x64");
+    }
+
+    @Test
+    void marksTestsRecordedOnOneTypeOnly() throws IOException {
+        for (String label : CI_LABELS) {
+            String[] parts = label.split("[ -]");
+            record(parts[0], parts[1], parts[2], "HelpTest.help", step("help", 0, "help"));
+            if (parts[0].equals("jar")) {
+                record(parts[0], parts[1], parts[2], "JavaTest.marksJavaRunningTheJarAsCurrent",
+                    step("java", 0, label.equals("jar windows-x64") ? "windows" : "current"));
+            }
+        }
+
+        CommandDocs.generate(dir.resolve("recordings"), dir.resolve("out"));
+
+        assertThat(Files.readString(dir.resolve("out/java.md")))
+            .contains("!!! note \"Only recorded on jar\"")
+            .contains("=== \"all except jar windows-x64\"")
+            .contains("=== \"jar windows-x64\"");
     }
 
     private void record(String type, String os, String arch, String test, Recording.Step... steps) {

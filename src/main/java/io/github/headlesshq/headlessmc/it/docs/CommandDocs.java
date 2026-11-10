@@ -44,7 +44,6 @@ public final class CommandDocs {
     private static final Pattern COLUMN_GAP = Pattern.compile(" {2,}");
     private static final Pattern BACKTICKS = Pattern.compile("`+");
     private static final Pattern CAMEL_CASE = Pattern.compile("(?<=[a-z0-9])(?=[A-Z])");
-    private static final int MAX_LABELS = 3;
     private static final String INDENT = "    ";
 
     private CommandDocs() {
@@ -196,7 +195,7 @@ public final class CommandDocs {
             out.line(code(test.getKey()));
             if (runs.size() < labels.size()) {
                 out.line();
-                out.line("!!! note \"Only recorded on " + labels(runs) + "\"");
+                out.line("!!! note \"" + recordedOn(runs.stream().map(Run::label).toList(), labels) + "\"");
             }
 
             Map<List<String>, List<Run>> structures = groupBy(runs, run -> run.recording().steps().stream().map(Recording.Step::commandLine).toList());
@@ -205,7 +204,7 @@ public final class CommandDocs {
             } else {
                 for (List<Run> group : structures.values()) {
                     out.line();
-                    out.line("=== \"" + labels(group) + "\"");
+                    out.line("=== \"" + tab(group, runs) + "\"");
                     steps(group, out.indented());
                 }
             }
@@ -224,7 +223,7 @@ public final class CommandDocs {
             } else {
                 for (List<Run> variant : variants.values()) {
                     out.line();
-                    out.line("=== \"" + labels(variant) + "\"");
+                    out.line("=== \"" + tab(variant, runs) + "\"");
                     step(variant.getFirst().step(i), out.indented());
                 }
             }
@@ -295,13 +294,67 @@ public final class CommandDocs {
         return runs.stream().collect(Collectors.groupingBy(key, LinkedHashMap::new, Collectors.toList()));
     }
 
-    private static String labels(List<Run> runs) {
-        List<String> labels = runs.stream().map(Run::label).toList();
-        if (labels.size() <= MAX_LABELS) {
-            return String.join(", ", labels);
+    private static String tab(List<Run> group, List<Run> all) {
+        return tabTitle(group.stream().map(Run::label).toList(), all.stream().map(Run::label).toList());
+    }
+
+    /**
+     * Describes the platforms of a tab, listing every one of them unless it can be shortened without losing any:
+     * all platforms of a type become e.g. {@code jar (all)}, and a group missing only a few of {@code all}
+     * becomes e.g. {@code all except native windows-x64}.
+     *
+     * @param group the labels of the platforms in the tab.
+     * @param all   the labels of all platforms the tab is chosen from.
+     * @return the title of the tab.
+     */
+    static String tabTitle(List<String> group, List<String> all) {
+        List<String> parts = collapse(group, all, " (all)");
+        List<String> missing = collapse(complement(group, all), all, " (all)");
+        if (!missing.isEmpty() && missing.size() < parts.size()) {
+            return "all except " + String.join(", ", missing);
         }
 
-        return String.join(", ", labels.subList(0, MAX_LABELS - 1)) + " and " + (labels.size() - MAX_LABELS + 1) + " more";
+        return String.join(", ", parts);
+    }
+
+    /**
+     * Describes on which of {@code all} platforms a test was recorded, e.g. {@code Only recorded on jar}
+     * or {@code Not recorded on native windows-x64}, without leaving out any platform.
+     *
+     * @param recorded the labels of the platforms the test was recorded on.
+     * @param all      the labels of all platforms that have recordings.
+     * @return the note.
+     */
+    static String recordedOn(List<String> recorded, List<String> all) {
+        List<String> parts = collapse(recorded, all, "");
+        List<String> missing = collapse(complement(recorded, all), all, "");
+        if (!missing.isEmpty() && missing.size() < parts.size()) {
+            return "Not recorded on " + String.join(", ", missing);
+        }
+
+        return "Only recorded on " + String.join(", ", parts);
+    }
+
+    private static List<String> complement(List<String> group, List<String> all) {
+        return all.stream().filter(label -> !group.contains(label)).toList();
+    }
+
+    private static List<String> collapse(List<String> group, List<String> all, String suffix) {
+        Map<String, List<String>> types = all.stream().distinct().collect(Collectors.groupingBy(CommandDocs::type, TreeMap::new, Collectors.toList()));
+        List<String> parts = new ArrayList<>();
+        types.forEach((type, labels) -> {
+            if (labels.size() > 1 && group.containsAll(labels)) {
+                parts.add(type + suffix);
+            } else {
+                labels.stream().filter(group::contains).sorted(LABEL_ORDER).forEach(parts::add);
+            }
+        });
+        return parts;
+    }
+
+    private static String type(String label) {
+        int space = label.indexOf(' ');
+        return space < 0 ? label : label.substring(0, space);
     }
 
     private static String code(String text) {
