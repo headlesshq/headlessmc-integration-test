@@ -4,84 +4,225 @@ on:
   push:
     branches: [ main ]
   pull_request:
-  workflow_dispatch:
   schedule:
     - cron: '0 4 * * 1'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: headlessmc release tag to test, empty for the latest release
+        type: string
+        default: ''
+      run-id:
+        description: headlessmc workflow run to download the executables from instead of a release
+        type: string
+        default: ''
+      repository:
+        description: Repository of the release or run
+        type: string
+        default: headlesshq/headlessmc
+      jar-artifact:
+        description: Name of the run artifact containing headlessmc.jar
+        type: string
+        default: HeadlessMc Launcher files
+      native-artifact-prefix:
+        description: Prefix of the run artifacts containing the native images, followed by the image name
+        type: string
+        default: 'HeadlessMc Native Image '
+      ref:
+        description: Ref of headlesshq/headlessmc-integration-test to run the tests from, empty for the dispatched ref
+        type: string
+        default: ''
+  workflow_call:
+    inputs:
+      tag:
+        description: headlessmc release tag to test, empty for the latest release
+        type: string
+        default: ''
+      run-id:
+        description: headlessmc workflow run to download the executables from instead of a release
+        type: string
+        default: ''
+      repository:
+        description: Repository of the release or run
+        type: string
+        default: headlesshq/headlessmc
+      jar-artifact:
+        description: Name of the run artifact containing headlessmc.jar
+        type: string
+        default: HeadlessMc Launcher files
+      native-artifact-prefix:
+        description: Prefix of the run artifacts containing the native images, followed by the image name
+        type: string
+        default: 'HeadlessMc Native Image '
+      ref:
+        description: Ref of headlesshq/headlessmc-integration-test to run the tests from
+        type: string
+        default: main
 
 permissions:
   contents: read
+  actions: read
+
+concurrency:
+  group: headlessmc-integration-test-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}-${{ inputs.run-id || inputs.tag }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   HMC_VERSION: 3.0.0-RC8
 
 jobs:
+  resolve:
+    name: Resolve executables
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        shell: bash
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      matrix: ${{ steps.resolve.outputs.matrix }}
+    steps:
+      - name: Resolve executables
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          REPOSITORY: ${{ inputs.repository || 'headlesshq/headlessmc' }}
+          TAG: ${{ inputs.tag }}
+          RUN_ID: ${{ inputs.run-id }}
+          JAR_ARTIFACT: ${{ inputs.jar-artifact || 'HeadlessMc Launcher files' }}
+          NATIVE_ARTIFACT_PREFIX: ${{ inputs.native-artifact-prefix || 'HeadlessMc Native Image ' }}
+        run: |
+          set -euo pipefail
+          entries='[
+            {"variant":"jar",   "runner":"ubuntu-latest",    "os":"linux",   "arch":"x64",   "name":"headlessmc",                     "file":"headlessmc.jar"},
+            {"variant":"jar",   "runner":"ubuntu-24.04-arm", "os":"linux",   "arch":"arm64", "name":"headlessmc",                     "file":"headlessmc.jar"},
+            {"variant":"jar",   "runner":"windows-latest",   "os":"windows", "arch":"x64",   "name":"headlessmc",                     "file":"headlessmc.jar"},
+            {"variant":"jar",   "runner":"windows-11-arm",   "os":"windows", "arch":"arm64", "name":"headlessmc",                     "file":"headlessmc.jar"},
+            {"variant":"jar",   "runner":"macos-latest",     "os":"macos",   "arch":"arm64", "name":"headlessmc",                     "file":"headlessmc.jar"},
+            {"variant":"jar",   "runner":"macos-15-intel",   "os":"macos",   "arch":"x64",   "name":"headlessmc",                     "file":"headlessmc.jar"},
+            {"variant":"native","runner":"ubuntu-latest",    "os":"linux",   "arch":"x64",   "name":"headlessmc-launcher-linux-x64",   "file":"headlessmc-launcher-linux-x64"},
+            {"variant":"native","runner":"ubuntu-24.04-arm", "os":"linux",   "arch":"arm64", "name":"headlessmc-launcher-linux-arm64", "file":"headlessmc-launcher-linux-arm64"},
+            {"variant":"native","runner":"windows-latest",   "os":"windows", "arch":"x64",   "name":"headlessmc-launcher-windows-x64", "file":"headlessmc-launcher-windows-x64.exe"},
+            {"variant":"native","runner":"macos-latest",     "os":"macos",   "arch":"arm64", "name":"headlessmc-launcher-macos-arm64", "file":"headlessmc-launcher-macos-arm64"},
+            {"variant":"native","runner":"macos-15-intel",   "os":"macos",   "arch":"x64",   "name":"headlessmc-launcher-macos-x64",   "file":"headlessmc-launcher-macos-x64"}
+          ]'
+          entries="$(jq -c 'map(. + {java: (if .os == "windows" and .arch == "arm64" then "microsoft" else "temurin" end)})' <<< "$entries")"
+          all="$entries"
+
+          if [[ -n "$RUN_ID" ]]; then
+            available="$(gh api --paginate "repos/$REPOSITORY/actions/runs/$RUN_ID/artifacts" --jq '.artifacts[] | select(.expired | not) | .name')"
+            entries="$(jq -c --arg available "$available" --arg jar "$JAR_ARTIFACT" --arg prefix "$NATIVE_ARTIFACT_PREFIX" '
+              ($available | split("\n")) as $names
+              | map(. + {artifact: (if .variant == "jar" then $jar else $prefix + .name end)})
+              | map(select(.artifact as $a | any($names[]; . == $a)))' <<< "$entries")"
+            tag="run-$RUN_ID"
+            echo "Testing artifacts of $REPOSITORY run $RUN_ID"
+          else
+            if [[ -z "$TAG" ]]; then
+              if [[ "$EVENT_NAME" == "push" || "$EVENT_NAME" == "pull_request" ]]; then
+                TAG="$HMC_VERSION"
+              else
+                TAG="$(gh release view --repo "$REPOSITORY" --json tagName --jq .tagName)"
+              fi
+            fi
+            available="$(gh release view "$TAG" --repo "$REPOSITORY" --json assets --jq '.assets[].name')"
+            entries="$(jq -c --arg available "$available" '
+              ($available | split("\n")) as $names
+              | map(. + {artifact: ""})
+              | map(select(.file as $f | any($names[]; . == $f)))' <<< "$entries")"
+            tag="$TAG"
+            echo "Testing $REPOSITORY release $TAG"
+          fi
+
+          jq -r '.[] | "Testing \(.variant) \(.os)-\(.arch) (\(.java) 25): \(if .artifact == "" then .file else .artifact end)"' <<< "$entries"
+          jq -r --argjson found "$entries" '($found | map("\(.variant)-\(.os)-\(.arch)")) as $keys
+            | .[] | select("\(.variant)-\(.os)-\(.arch)" as $k | any($keys[]; . == $k) | not)
+            | "::notice::Skipping \(.variant) \(.os)-\(.arch), \(.file) is not available"' <<< "$all"
+          if [[ "$(jq length <<< "$entries")" == 0 ]]; then
+            echo "::error::No headlessmc executables found"
+            exit 1
+          fi
+          {
+            echo "tag=$tag"
+            echo "matrix=$(jq -c '{include: .}' <<< "$entries")"
+          } >> "$GITHUB_OUTPUT"
+
   test:
-    if: github.event_name != 'schedule'
+    name: ${{ matrix.variant }} ${{ matrix.os }}-${{ matrix.arch }}
+    needs: resolve
     strategy:
       fail-fast: false
-      matrix:
-        os: [ ubuntu-latest, windows-latest, macos-latest ]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+      matrix: ${{ fromJSON(needs.resolve.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
     defaults:
       run:
         shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ${{ inputs.ref && 'headlesshq/headlessmc-integration-test' || github.repository }}
+          ref: ${{ inputs.ref }}
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
         with:
           java-version: 25
-          distribution: temurin
+          distribution: ${{ matrix.java }}
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
 
-      - name: Download headlessmc ${{ env.HMC_VERSION }}
+      - name: Download ${{ matrix.file }} (${{ needs.resolve.outputs.tag }})
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release download "$HMC_VERSION" --repo headlesshq/headlessmc --pattern headlessmc.jar --dir hmc
+          REPOSITORY: ${{ inputs.repository || 'headlesshq/headlessmc' }}
+          RUN_ID: ${{ inputs.run-id }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+          ARTIFACT: ${{ matrix.artifact }}
+          FILE: ${{ matrix.file }}
+        run: |
+          set -euo pipefail
+          mkdir -p hmc
+          if [[ -n "$RUN_ID" ]]; then
+            gh run download "$RUN_ID" --repo "$REPOSITORY" --name "$ARTIFACT" --dir "$RUNNER_TEMP/hmc-artifact"
+            found="$(find "$RUNNER_TEMP/hmc-artifact" -type f -name "$FILE" | head -n 1)"
+            if [[ -z "$found" ]]; then
+              echo "::error::$FILE not found in artifact '$ARTIFACT'"
+              find "$RUNNER_TEMP/hmc-artifact" -type f
+              exit 1
+            fi
+            mv "$found" "hmc/$FILE"
+          else
+            gh release download "$TAG" --repo "$REPOSITORY" --pattern "$FILE" --dir hmc
+          fi
+          if [[ "$RUNNER_OS" != "Windows" ]]; then
+            chmod +x "hmc/$FILE"
+          fi
+          echo "HMC_EXECUTABLE=hmc/$FILE" >> "$GITHUB_ENV"
 
       - name: Test
-        env:
-          HMC_EXECUTABLE: ${{ github.workspace }}/hmc/headlessmc.jar
-        run: ./gradlew test
+        run: |
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            sudo sysctl -w kern.maxfiles=524288
+            sudo sysctl -w kern.maxfilesperproc=524288
+            sudo launchctl limit maxfiles 524288 524288
+            ulimit -n 524288
+          fi
+          ./gradlew test --rerun --continue --stacktrace
 
-      - name: Upload recordings and test reports
+      - name: Upload recordings
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: recordings-${{ matrix.os }}
-          path: |
-            build/recordings
-            build/reports/tests
+          name: recordings-${{ matrix.variant }}-${{ matrix.os }}-${{ matrix.arch }}
+          path: build/recordings
           if-no-files-found: ignore
 
-  latest:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
-        with:
-          java-version: 25
-          distribution: temurin
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
-
-      - name: Download latest headlessmc release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release download --repo headlesshq/headlessmc --pattern headlessmc.jar --dir hmc
-
-      - name: Test
-        env:
-          HMC_EXECUTABLE: ${{ github.workspace }}/hmc/headlessmc.jar
-        run: ./gradlew test
-
-      - name: Upload recordings and test reports
-        if: always()
+      - name: Upload test reports
+        if: failure()
+        continue-on-error: true
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: recordings-latest
+          name: test-reports-${{ matrix.variant }}-${{ matrix.os }}-${{ matrix.arch }}
           path: |
-            build/recordings
             build/reports/tests
+            build/test-results
           if-no-files-found: ignore

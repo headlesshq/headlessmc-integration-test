@@ -85,6 +85,10 @@ class JavaTest {
     void listsRemoteDistributions(HmcRunner hmc) {
         CommandResult result = hmc.run("java", "ls", "--remote");
 
+        if (hmc.executable().type() == HmcExecutable.Type.NATIVE) {
+            assertFailsToDeserializeFoojayResult(result);
+            return;
+        }
         assertThat(result).succeeded();
         HmcTable table = HmcTable.parse(result);
         assertThat(table.columns()).containsExactly("name", "id", "provider");
@@ -92,6 +96,18 @@ class JavaTest {
             .satisfies(row -> assertThat(row).containsEntry("name", "Temurin").containsEntry("provider", "foojay.io"));
         assertThat(table.column("id")).allMatch(id -> id.matches("[a-z0-9_]+"), "is a distribution id");
         assertThat(result.files()).containsOnlyPathsMatching("hmc/**");
+    }
+
+    /**
+     * Known headlessmc bug: the native image has no reflection config for the foojay {@code Result} class,
+     * so {@code java ls --remote} cannot deserialize the response. Fails once headlessmc fixes it,
+     * then this check can be removed.
+     */
+    private static void assertFailsToDeserializeFoojayResult(CommandResult result) {
+        assertThat(result).hasExitCode(1);
+        assertThat(result.normalizedStdout() + result.normalizedStderr())
+            .as("known native image bug, remove this check once headlessmc registers foojay.Result for reflection")
+            .contains("foojay.Result");
     }
 
     /**

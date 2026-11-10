@@ -44,13 +44,61 @@ Other options, all passed as `-D` to Gradle:
 The tests, and in particular the golden files, are written against a pinned headlessmc release,
 currently **3.0.0-RC8**, set as `HMC_VERSION` in `.github/workflows/test.yml`. To move to a new release,
 bump `HMC_VERSION`, download that release, run `./gradlew test -Dupdate.golden=true` and review the golden diff.
-A weekly scheduled job (also run on `workflow_dispatch`) tests the latest release to catch upstream changes early.
+
+## CI
+
+`.github/workflows/test.yml` runs the suite against `headlessmc.jar` (JDK 25, Temurin, or the Microsoft Build of OpenJDK on `windows-11-arm`, for which Temurin publishes no JDK 25) on
+`ubuntu-latest`, `ubuntu-24.04-arm`, `windows-latest`, `windows-11-arm`, `macos-latest` and `macos-15-intel`,
+and against the native images on the same runners, except `windows-11-arm`, for which no native image exists.
+A first job looks up which executables exist and drops the matrix entries whose executable is missing,
+e.g. the natives other than linux-x64 for a headlessmc run that is not a release.
+
+Pushes and pull requests test `HMC_VERSION`. The weekly schedule tests the latest release to catch upstream changes early.
+`workflow_dispatch` and `workflow_call` take these inputs:
+
+| Input                    | Default                     | Description                                                                 |
+|--------------------------|-----------------------------|-----------------------------------------------------------------------------|
+| `tag`                    | latest release              | headlessmc release to test.                                                 |
+| `run-id`                 |                             | headlessmc workflow run to take the executables from instead of a release. |
+| `repository`             | `headlesshq/headlessmc`     | Repository of the release or run.                                           |
+| `jar-artifact`           | `HeadlessMc Launcher files` | Run artifact containing `headlessmc.jar`.                                   |
+| `native-artifact-prefix` | `HeadlessMc Native Image `  | Run artifacts of the natives are named this prefix plus the image name.     |
+| `ref`                    | `main` (`workflow_call`)    | Ref of this repository to run the tests from.                               |
+
+headlessmc can test unreleased builds with a job like this. The job must grant `contents: read` and `actions: read`:
+a called workflow cannot get more permissions than its caller, and GitHub refuses to start the whole calling workflow
+if it asks for more. `repository` makes forks of headlessmc look up the run in their own repository.
+
+```yaml
+integration-test:
+  needs: [ build, build-natives ]
+  permissions:
+    contents: read
+    actions: read
+  uses: headlesshq/headlessmc-integration-test/.github/workflows/test.yml@main
+  with:
+    run-id: ${{ github.run_id }}
+    repository: ${{ github.repository }}
+
+merge:
+  needs: [ release-please, build, build-natives, packages, docker-release, integration-test ]
+```
+
+On release runs, headlessmc's `merge` job replaces the run artifacts with `merged-artifacts` (`delete-merged: true`).
+It must therefore list `integration-test` in `needs`, as above, or the test jobs may fail to download
+`HeadlessMc Launcher files` and the native images after `merge` has deleted them.
+
+Each job uploads its recordings as `recordings-<variant>-<os>-<arch>`, e.g. `recordings-native-linux-x64`,
+and, if it fails, its JUnit reports as `test-reports-<variant>-<os>-<arch>`.
 
 Known headlessmc bugs the tests currently encode or work around:
 
 - `golden/help/headlessmc.txt` contains a stray `test` line below the usage line. Remove it once headlessmc fixes it.
 - `LaunchTest` creates the `mc/resources/...` directories for legacy asset indexes before launching,
   because headlessmc copies those assets without creating the parent directories.
+- `JavaTest.listsRemoteDistributions` expects `java ls --remote` to fail on the native image (exit code 1,
+  `InvalidDefinitionException` for `foojay.Result`), because the native image has no reflection config for that class.
+  The test fails once headlessmc fixes it; then drop the native branch.
 
 ## Test cases
 
