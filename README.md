@@ -111,9 +111,12 @@ The command tests live in `src/test/java/.../it/commands`, one class per command
 | `UnknownCommandTest` | unknown commands and subcommands, missing parameters (exit code 2)              |
 | `ConfigTest`         | `config ls`, `config get`, `config set` and the written `hmc/config.properties` |
 | `JavaTest`           | `java ls`; remote distributions (`network`)                                     |
-| `VersionTest`        | `version ls`; remote versions and `version install vanilla 1.21.1` (`network`) |
+| `VersionTest`        | `version ls`; remote versions and `version install vanilla 1.21.1` (`network`); `launch --dry-run` of `rd-132211`, checks the client jar and its sha1 (`network`), and that it fails if a download fails |
 | `ServerTest`         | `server ls`; `server add vanilla 1.21.1` (`network`)                            |
 | `LaunchTest`         | `launch rd-132211`, checks the downloaded client jar and its sha1 (`network`)   |
+
+The `launch --dry-run` tests are skipped when the executable's `launch --help` does not list `--dry-run`,
+e.g. for 3.0.0-RC8. headlessmc#554 added it after that release.
 
 Golden files are only used for stable output such as help text. Output that depends on the machine,
 installed Javas or remote data is checked structurally, e.g. by parsing tables with `HmcTable`.
@@ -136,6 +139,9 @@ class ConfigTest {
 
 `assertThat` and `assertThatFiles` come from `HmcAssertions`.
 Tag tests that need the internet with `@Tag("network")`.
+To test an option that older releases do not have, skip the test with
+`assumeTrue(HmcRunner.hasOption(hmc.executable(), List.of("launch"), "--dry-run"))`,
+which checks the command's `--help` once per executable.
 
 List commands print tables. `HmcTable.parse(result)` splits them by the header's column positions
 before normalizing each cell, so cells can contain spaces and long directories do not shift the columns:
