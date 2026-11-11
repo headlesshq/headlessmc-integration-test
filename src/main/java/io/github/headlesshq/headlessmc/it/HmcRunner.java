@@ -61,6 +61,7 @@ public final class HmcRunner {
     private static final Duration READER_GRACE = Duration.ofSeconds(10);
     private static final long POLL_MILLIS = 50;
     private static final Map<Path, Optional<String>> VERSIONS = new ConcurrentHashMap<>();
+    private static final Map<List<Object>, Optional<String>> HELP = new ConcurrentHashMap<>();
     private static final List<String> REMOVED_ENV_PREFIXES = List.of("HMC_", "XDG_");
     private static final List<String> REMOVED_ENV = List.of(
         "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS", "TERM", "OSTYPE", "COLUMNS"
@@ -424,26 +425,44 @@ public final class HmcRunner {
      * @return the first non-empty line printed by {@code --version}, or empty if it failed or printed nothing.
      */
     public static Optional<String> versionOf(HmcExecutable executable) {
-        return VERSIONS.computeIfAbsent(executable.path(), path -> {
-            Path tmp = null;
-            try {
-                tmp = Files.createTempDirectory("hmc-it-version-");
-                CommandResult result = new HmcRunner(executable, tmp, Duration.ofSeconds(60), Optional.empty()).execute(
-                    Duration.ofSeconds(60), List.of("--version")
-                );
-                if (result.exitCode() == 0) {
-                    return result.stdout().lines().map(String::strip).filter(line -> !line.isEmpty()).findFirst();
-                }
+        return VERSIONS.computeIfAbsent(executable.path(), path -> runInTempDir(executable, List.of("--version"))
+            .flatMap(stdout -> stdout.lines().map(String::strip).filter(line -> !line.isEmpty()).findFirst()));
+    }
 
-                return Optional.<String>empty();
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
-            } finally {
-                if (tmp != null) {
-                    deleteRecursively(tmp);
-                }
+    /**
+     * Checks whether a command of an executable has an option by running {@code <command> --help}
+     * in a throwaway directory. The result is cached per executable and command.
+     * Use it to skip tests of options that the executable under test does not have yet.
+     *
+     * @param executable the executable.
+     * @param command    the command, e.g. {@code List.of("launch")}.
+     * @param option     the option, e.g. {@code "--dry-run"}.
+     * @return whether the help of the command lists the option.
+     */
+    public static boolean hasOption(HmcExecutable executable, List<String> command, String option) {
+        List<String> args = new ArrayList<>(command);
+        args.add("--help");
+        Optional<String> help = HELP.computeIfAbsent(List.of(executable.path(), List.copyOf(args)),
+            key -> runInTempDir(executable, args));
+        return help.stream()
+            .flatMap(text -> Arrays.stream(text.split("[\\s\\[\\],=|]+")))
+            .anyMatch(option::equals);
+    }
+
+    private static Optional<String> runInTempDir(HmcExecutable executable, List<String> args) {
+        Path tmp = null;
+        try {
+            tmp = Files.createTempDirectory("hmc-it-probe-");
+            CommandResult result = new HmcRunner(executable, tmp, Duration.ofSeconds(60), Optional.empty())
+                .execute(Duration.ofSeconds(60), args);
+            return result.exitCode() == 0 ? Optional.of(result.stdout()) : Optional.empty();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        } finally {
+            if (tmp != null) {
+                deleteRecursively(tmp);
             }
-        });
+        }
     }
 
     /**
