@@ -19,6 +19,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * {@code version ls} and {@code version install}. Remote listings change whenever Minecraft or a mod loader
  * releases, so they are checked structurally.
+ * <p>
+ * {@code version install vanilla} only writes the version json. headlessmc 3.0.0-RC8, which CI pins, has no
+ * way to download the client jar without launching, so the client jar and its sha1 are checked in
+ * {@link LaunchTest}. headlessmc#554 adds {@code launch --dry-run}; once CI pins a release that contains it,
+ * check the client jar here.
  */
 @HmcTest
 class VersionTest {
