@@ -22,7 +22,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>
  * {@code version install vanilla} only writes the version json. headlessmc 3.0.0-RC8, which CI pins, has no
  * way to download the client jar without launching, so the client jar and its sha1 are checked in
- * {@link LaunchTest}. headlessmc#554 adds {@code launch --dry-run}; see #137 for moving the check here.
+ * {@link LaunchTest}. headlessmc#554 adds {@code launch --dry-run}; once CI pins a release that contains it,
+ * check the client jar here.
  */
 @HmcTest
 class VersionTest {
