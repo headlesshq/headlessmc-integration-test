@@ -96,9 +96,6 @@ Known headlessmc bugs the tests currently encode or work around:
 - `golden/help/headlessmc.txt` contains a stray `test` line below the usage line. Remove it once headlessmc fixes it.
 - `LaunchTest` creates the `mc/resources/...` directories for legacy asset indexes before launching,
   because headlessmc copies those assets without creating the parent directories.
-- `JavaTest.listsRemoteDistributions` expects `java ls --remote` to fail on the native image (exit code 1,
-  `InvalidDefinitionException` for `foojay.Result`), because the native image has no reflection config for that class.
-  The test fails once headlessmc fixes it; then drop the native branch.
 
 ## Test cases
 
