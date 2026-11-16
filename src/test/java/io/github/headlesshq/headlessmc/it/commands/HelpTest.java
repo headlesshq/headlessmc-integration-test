@@ -35,7 +35,9 @@ class HelpTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @ValueSource(strings = {"config", "account", "java", "launch", "version", "profile", "server", "mod", "help"})
+    @ValueSource(strings = {
+        "config", "account", "login", "java", "launch", "version", "install", "profile", "server", "mod", "help"
+    })
     void helpForCommand(String command, HmcRunner hmc) {
         CommandResult result = hmc.run("help", command);
 
@@ -47,7 +49,7 @@ class HelpTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @CsvSource({"auth, account", "login, account", "download, version", "install, version"})
+    @CsvSource({"auth, account", "download, install"})
     void helpForAliasIsHelpForCommand(String alias, String command, HmcRunner hmc) {
         assertThat(hmc.run("help", alias))
             .succeeded()

@@ -11,7 +11,6 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
@@ -35,7 +34,7 @@ class ServerTest {
 
         assertThat(result).succeeded().hasEmptyStderr();
         HmcTable table = HmcTable.parse(result);
-        assertThat(table.columns()).containsExactly("name", "version", "directory");
+        assertThat(table.columns()).containsExactly("name", "target", "version", "directory");
         assertThat(table.rows()).isEmpty();
         HelpTest.assertNoFilesBesidesConfigAndLogs(hmc, result);
     }
@@ -47,7 +46,7 @@ class ServerTest {
 
         assertThat(add)
             .succeeded()
-            .hasOutputMatching("^Installed server " + NAME + " for version server/" + VERSION + "$");
+            .hasOutputMatching("^Installed server " + NAME + " for version " + VERSION + "$");
         assertThat(add.files())
             .containsOnlyPathsMatching(DIR + "/**", "hmc/**", "mc/versions/**")
             .hasAdded(DIR + "/server.jar")
@@ -58,10 +57,13 @@ class ServerTest {
 
         JsonNode profile = JsonMapper.shared().readTree(hmc.dir().resolve("hmc/profiles/" + NAME + ".json").toFile());
         assertThat(profile.path("name").asString()).isEqualTo(NAME);
-        assertThat(profile.path("version").path("side").asString()).isEqualTo("SERVER");
-        assertThat(profile.path("version").path("platform").asString()).isEqualTo("vanilla");
-        assertThat(profile.path("version").path("version").asString()).isEqualTo(VERSION);
-        assertThat(Path.of(URI.create(profile.path("path").asString()))).isEqualTo(hmc.dir().resolve(DIR));
+        assertThat(profile.path("side").asString()).isEqualTo("SERVER");
+        assertThat(profile.path("target").path("name").asString()).isEqualTo("server");
+        JsonNode version = profile.path("target").path("data").path("version");
+        assertThat(version.path("side").asString()).isEqualTo("SERVER");
+        assertThat(version.path("platform").asString()).isEqualTo("vanilla");
+        assertThat(version.path("version").asString()).isEqualTo(VERSION);
+        assertThat(Path.of(profile.path("path").path("path").asString())).isEqualTo(hmc.dir().resolve(DIR));
 
         Path jar = hmc.dir().resolve(DIR).resolve("server.jar");
         assertThat(Files.size(jar)).isGreaterThan(10_000_000L);
@@ -72,7 +74,7 @@ class ServerTest {
         CommandResult list = hmc.run("server", "ls");
         assertThat(list).succeeded();
         assertThat(HmcTable.parse(list).rows())
-            .containsExactly(Map.of("name", NAME, "version", "server/" + VERSION, "directory", "<HMC_DIR>/" + DIR));
+            .containsExactly(Map.of("name", NAME, "target", "server", "version", VERSION, "directory", "<HMC_DIR>/" + DIR));
     }
 
     @Test
