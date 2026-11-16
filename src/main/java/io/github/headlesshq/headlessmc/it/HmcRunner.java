@@ -25,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 
 /**
  * Runs headlessmc commands non-interactively as subprocesses inside one test directory.
@@ -334,6 +335,21 @@ public final class HmcRunner {
     public HmcRunner property(String key, String value) {
         properties.put(key, value);
         return this;
+    }
+
+    /**
+     * Sets a system property that headlessmc reads as a list, e.g. {@code hmc.java.versions}, for all following
+     * commands. headlessmc reads lists with SmallRye Config, which splits the value on {@code ,} and drops
+     * an unescaped {@code \}, so a Windows path set with {@link #property(String, String)} loses its separators.
+     *
+     * @param key      the property name.
+     * @param elements the elements of the list, unescaped.
+     * @return this runner.
+     */
+    public HmcRunner listProperty(String key, String... elements) {
+        return property(key, Arrays.stream(elements)
+            .map(element -> element.replace("\\", "\\\\").replace(",", "\\,"))
+            .collect(Collectors.joining(",")));
     }
 
     /**

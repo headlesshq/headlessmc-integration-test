@@ -163,6 +163,8 @@ Commands run non-interactively with `-Dhmc.jline.enabled=false` and stdin closed
 `HMC_*`, `XDG_*`, `JAVA_TOOL_OPTIONS`-style and terminal (`TERM`, `OSTYPE`, `COLUMNS`) environment variables are not passed on.
 Otherwise picocli treats Git Bash on Windows as a pseudo terminal, colours the output and prints `stty` errors to stderr.
 Use `hmc.property(key, value)` or `hmc.env(key, value)` to configure further.
+Set list properties such as `hmc.java.versions` with `hmc.listProperty(key, elements...)`: headlessmc splits them
+on `,` and drops an unescaped `\`, so a Windows path set with `hmc.property` is not found.
 
 `hmc.run(...)` runs one command, `hmc.runAll(...)` a sequence. Each command is killed with its child processes
 when it exceeds its timeout, and the directory is snapshotted before and after it to compute the added,

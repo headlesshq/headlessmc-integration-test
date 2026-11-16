@@ -131,7 +131,7 @@ class VersionTest {
         String version = DRY_RUN_PARENT + "-java" + java;
         String clientJar = "mc/versions/" + version + "/" + version + ".jar";
         hmc.property("hmc.java.download", "false")
-            .property("hmc.java.versions", System.getProperty("java.home"))
+            .listProperty("hmc.java.versions", System.getProperty("java.home"))
             .property("hmc.assets.dummy", "true");
         assertThat(hmc.run("version", "install", "vanilla", DRY_RUN_PARENT)).succeeded();
         writeVersion(hmc, version, """
@@ -162,7 +162,7 @@ class VersionTest {
         int java = Runtime.version().feature();
         String deadUrl = "http://127.0.0.1:1/";
         hmc.property("hmc.java.download", "false")
-            .property("hmc.java.versions", System.getProperty("java.home"))
+            .listProperty("hmc.java.versions", System.getProperty("java.home"))
             .property("hmc.updater.enabled", "false")
             .property("http.proxyHost", "127.0.0.1")
             .property("http.proxyPort", "1")

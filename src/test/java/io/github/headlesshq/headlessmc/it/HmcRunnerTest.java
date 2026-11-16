@@ -82,6 +82,23 @@ class HmcRunnerTest {
         assertThat(HmcRunner.hasOption(executable, List.of("server", "launch"), "--dry-run")).isFalse();
     }
 
+    @Test
+    void listPropertyEscapesBackslashesAndCommas() throws IOException {
+        HmcExecutable executable = script("fake-hmc-args", """
+            #!/bin/sh
+            for arg in "$@"; do
+              if [ "$arg" = "--version" ]; then echo 1.0.0; exit 0; fi
+            done
+            printf '%s\\n' "$@"
+            """);
+        HmcRunner runner = new HmcRunner(executable, dir.resolve("run"));
+
+        runner.listProperty("hmc.java.versions", "C:\\Program Files\\Java\\jdk-25", "/opt/jdk,25");
+
+        assertThat(runner.run("java", "ls").stdout().lines())
+            .contains("-Dhmc.java.versions=C:\\\\Program Files\\\\Java\\\\jdk-25,/opt/jdk\\,25");
+    }
+
     private HmcExecutable script(String name, String content) throws IOException {
         Path file = dir.resolve(name);
         Files.writeString(file, content);
