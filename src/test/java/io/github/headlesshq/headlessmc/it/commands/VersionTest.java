@@ -154,10 +154,12 @@ class VersionTest {
 
     /**
      * A dry run of a local version whose client jar points at a closed port on localhost.
-     * The HTTP proxies point there too and the updater is disabled, so the test does not need the internet.
+     * The asset index is already in place and valid, so the client jar is the only download, which the
+     * requests in the log file show. The HTTP proxies point at the closed port too and the updater is disabled,
+     * so the test does not need the internet.
      */
     @Test
-    void dryRunFailsIfADownloadFails(HmcRunner hmc) throws IOException {
+    void dryRunFailsIfADownloadFails(HmcRunner hmc) throws IOException, NoSuchAlgorithmException {
         assumeDryRun(hmc);
         int java = Runtime.version().feature();
         String deadUrl = "http://127.0.0.1:1/";
@@ -168,8 +170,9 @@ class VersionTest {
             .property("http.proxyPort", "1")
             .property("https.proxyHost", "127.0.0.1")
             .property("https.proxyPort", "1");
-        Files.createDirectories(hmc.mcDir().resolve("assets/indexes"));
-        Files.writeString(hmc.mcDir().resolve("assets/indexes/broken.json"), "{\"objects\": {}}");
+        Path index = hmc.mcDir().resolve("assets/indexes/broken.json");
+        Files.createDirectories(index.getParent());
+        Files.writeString(index, "{\"objects\": {}}");
         writeVersion(hmc, "broken", """
             {
               "id": "broken",
@@ -177,15 +180,18 @@ class VersionTest {
               "mainClass": "net.minecraft.client.Minecraft",
               "javaVersion": {"majorVersion": %d},
               "assets": "broken",
-              "assetIndex": {"id": "broken", "sha1": "%s", "size": 14, "totalSize": 0, "url": "%sbroken.json"},
+              "assetIndex": {"id": "broken", "sha1": "%s", "size": %d, "totalSize": 0, "url": "%sbroken.json"},
               "libraries": [],
               "downloads": {"client": {"sha1": "%s", "size": 1, "url": "%sclient.jar"}}
             }
-            """.formatted(java, "0".repeat(40), deadUrl, "0".repeat(40), deadUrl));
+            """.formatted(java, sha1(index), Files.size(index), deadUrl, "0".repeat(40), deadUrl));
 
         CommandResult dryRun = hmc.run("launch", "broken", "--dry-run");
 
         assertThat(dryRun).failed().hasOutputContaining("ConnectException");
+        assertThat(hmc.dir().resolve("hmc/logs/headlessmc.log")).content()
+            .contains("Requesting " + deadUrl + "client.jar")
+            .doesNotContain("Requesting " + deadUrl + "broken.json");
         assertThat(hmc.mcDir().resolve("versions/broken/broken.jar")).doesNotExist();
     }
 
