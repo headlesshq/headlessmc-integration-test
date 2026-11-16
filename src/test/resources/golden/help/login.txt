@@ -1,0 +1,9 @@
+Usage: headlessmc login [-hV] [--method=<method>] [-p=<provider>]
+Log into an account.
+  -h, --help              Show this help message and exit.
+      --method=<method>   The authentication method to use (e.g. default,
+                            credentials, webview...)
+  -p, --provider=<provider>
+                          The authentication provider to use (default, offline,
+                            yggdrasil, ...)
+  -V, --version           Print version information and exit.

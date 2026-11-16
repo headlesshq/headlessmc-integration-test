@@ -6,5 +6,7 @@ Commands:
   add, install, download  Downloads and installs a new server.
   list, ls                Lists your servers.
   remove, rm              Removes a server.
+  move, mv, rename        Moves the directory of a server and/or renames the
+                            server.
   launch                  Launches a server.
   eula                    Manage the EULA of a server.

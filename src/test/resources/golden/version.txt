@@ -1,1 +1,1 @@
-<HMC_VERSION>
+HeadlessMc <HMC_VERSION>

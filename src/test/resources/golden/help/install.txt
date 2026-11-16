@@ -1,0 +1,15 @@
+Usage: headlessmc install [-fhV] [-d=<customDir>] [--mc=<mc>] [-n=<name>]
+                          [-u=<customURL>] [VERSION...]
+Downloads and installs a version.
+      [VERSION...]        The version to install, e.g. 'fabric 1.21.1'.
+  -d, --dir=<customDir>   Installs the version to a custom directory, for
+                            clients a Minecraft directory, for servers the
+                            directory of the server.
+  -f, --force             Forces reinstallation even if the version is already
+                            installed.
+  -h, --help              Show this help message and exit.
+      --mc=<mc>           The Minecraft directory to install a client into, by
+                            default the primary one (hmc.files.mc).
+  -n, --name=<name>       This name is given to the profile/server to install.
+  -u, --url=<customURL>   Uses a custom URL to download the installer.
+  -V, --version           Print version information and exit.

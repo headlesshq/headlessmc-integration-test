@@ -1,10 +1,15 @@
-Usage: headlessmc launch [-hV] [-eula] [-lwjgl] [--offline] [-g=<gameArgs>]
-                         [-j=<jvmArgs>] [--packwiz=<packwiz>]
-                         [-res=<resolution>] [-ret=<retries>]
-                         [--server=<server>] [--patchers=<patchers>[,
-                         <patchers>...]]... [profile...]
+Usage: headlessmc launch [-hV] [--dry-run] [-eula] [-lwjgl] [--no-backup]
+                         [--offline] [-g=<gameArgs>] [-j=<jvmArgs>] [--mc=<mc>]
+                         [--packwiz=<packwiz>] [-res=<resolution>]
+                         [-ret=<retries>] [--server=<server>] [-t=<target>]
+                         [--patchers=<patchers>[,<patchers>...]]... [profile...]
 Launches the game.
-      [profile...]           The profile/server/version to launch
+      [profile...]           The profile to launch, or what to launch, e.g.
+                               'fabric 1.21.1'.
+      --dry-run              Installs and downloads everything needed to
+                               launch, e.g. the jar, libraries, assets and the
+                               Java runtime, but stops right before the game
+                               would be started.
       -eula, --eula-accept   Automatically accepts the EULA if needed.
   -g, --game=<gameArgs>      Arguments for the started game, e.g. --game
                                "--quickPlayRealms <realms-server>"
@@ -12,9 +17,18 @@ Launches the game.
   -j, --jvm=<jvmArgs>        Arguments for the started JVM, e.g. --jvm "-Xmx2G
                                -Dproperty=value"
       -lwjgl, --headless     Patches LWJGL to not render anything.
+      --mc=<mc>              The Minecraft directory to launch from and to
+                               install missing versions into, if there are
+                               multiple (hmc.files.mc-dirs).
+      --no-backup            Does not back up the profile before launching, see
+                               hmc.backup.auto.
       --offline              Launches with an offline account.
       --packwiz=<packwiz>    Path to a pack.toml packwiz modpack file, or a
-                               directory containing one, to launch.
+                               directory containing one, to launch. The same as
+                               '--target packwiz <path>': the pack decides
+                               which version is launched, the other arguments
+                               are not a profile or a version then, but
+                               [client|server] [loader] of the pack.
       --patchers=<patchers>[,<patchers>...]
                              Comma-separated list of patchers to use.
       -res, --resolution=<resolution>
@@ -23,4 +37,8 @@ Launches the game.
       -ret, --retries=<retries>
                              How many times to retry launching the process.
       --server=<server>      Joins a server immediately after launching the game
+  -t, --target=<target>      The launch target that handles the arguments, e.g.
+                               version, server, version-file, jar, script,
+                               packwiz or profile. If it is not specified, it
+                               is detected from the arguments.
   -V, --version              Print version information and exit.

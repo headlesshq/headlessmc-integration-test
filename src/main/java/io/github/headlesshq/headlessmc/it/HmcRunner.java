@@ -57,6 +57,7 @@ public final class HmcRunner {
      * The version recorded when {@code --version} does not report one.
      */
     public static final String UNKNOWN_VERSION = "unknown";
+    private static final String VERSION_PREFIX = "HeadlessMc ";
 
     private static final Duration READER_GRACE = Duration.ofSeconds(10);
     private static final long POLL_MILLIS = 50;
@@ -117,6 +118,7 @@ public final class HmcRunner {
 
         this.normalizer = normalizerBuilder.hmcVersion(version.orElse(null)).build();
         properties.put("hmc.jline.enabled", "false");
+        properties.put("hmc.updater.enabled", "false");
         properties.put("hmc.files.location", hmcDir().toString());
         properties.put("hmc.files.mc", mcDir().toString());
         properties.put("hmc.files.game", gameDir().toString());
@@ -421,7 +423,8 @@ public final class HmcRunner {
      * The result is cached per executable.
      *
      * @param executable the executable.
-     * @return the first non-empty line printed by {@code --version}, or empty if it failed or printed nothing.
+     * @return the version in the first non-empty line printed by {@code --version}, without the
+     * {@value #VERSION_PREFIX} prefix newer releases print, or empty if it failed or printed nothing.
      */
     public static Optional<String> versionOf(HmcExecutable executable) {
         return VERSIONS.computeIfAbsent(executable.path(), path -> {
@@ -432,7 +435,8 @@ public final class HmcRunner {
                     Duration.ofSeconds(60), List.of("--version")
                 );
                 if (result.exitCode() == 0) {
-                    return result.stdout().lines().map(String::strip).filter(line -> !line.isEmpty()).findFirst();
+                    return result.stdout().lines().map(String::strip).filter(line -> !line.isEmpty()).findFirst()
+                        .map(line -> line.startsWith(VERSION_PREFIX) ? line.substring(VERSION_PREFIX.length()) : line);
                 }
 
                 return Optional.<String>empty();

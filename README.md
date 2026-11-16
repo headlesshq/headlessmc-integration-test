@@ -11,7 +11,7 @@ You need Java 25. Point `HMC_EXECUTABLE` (or the `hmc.executable` system propert
 Against a jar, which is run with `java -jar`:
 
 ```shell
-gh release download 3.0.0-RC8 --repo headlesshq/headlessmc --pattern headlessmc.jar --dir hmc
+gh release download 3.0.0-RC9 --repo headlesshq/headlessmc --pattern headlessmc.jar --dir hmc
 HMC_EXECUTABLE=hmc/headlessmc.jar ./gradlew test
 ```
 
@@ -20,7 +20,7 @@ The jar is run with the Java the tests run on. Use `HMC_JAVA` or `-Dhmc.java=/pa
 Against a native binary, which is run directly:
 
 ```shell
-gh release download 3.0.0-RC8 --repo headlesshq/headlessmc --pattern headlessmc-launcher-linux-x64 --dir hmc
+gh release download 3.0.0-RC9 --repo headlesshq/headlessmc --pattern headlessmc-launcher-linux-x64 --dir hmc
 chmod +x hmc/headlessmc-launcher-linux-x64
 ./gradlew test -Dhmc.executable=hmc/headlessmc-launcher-linux-x64
 ```
@@ -42,7 +42,7 @@ Other options, all passed as `-D` to Gradle:
 ## headlessmc version under test
 
 The tests, and in particular the golden files, are written against a pinned headlessmc release,
-currently **3.0.0-RC8**, set as `HMC_VERSION` in `.github/workflows/test.yml`. To move to a new release,
+currently **3.0.0-RC9**, set as `HMC_VERSION` in `.github/workflows/test.yml`. To move to a new release,
 bump `HMC_VERSION`, download that release, run `./gradlew test -Dupdate.golden=true` and review the golden diff.
 
 ## CI

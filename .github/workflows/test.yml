@@ -68,7 +68,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  HMC_VERSION: 3.0.0-RC8
+  HMC_VERSION: 3.0.0-RC9
 
 jobs:
   resolve:
