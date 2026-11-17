@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -59,6 +60,43 @@ class HmcRunnerTest {
         assertThat(result.duration()).isLessThan(Duration.ofSeconds(5));
         long pid = Long.parseLong(Files.readString(runner.dir().resolve("child.pid")).strip());
         assertThat(ProcessHandle.of(pid).filter(ProcessHandle::isAlive)).isEqualTo(Optional.empty());
+    }
+
+    @Test
+    void hasOptionChecksTheHelpOfTheCommand() throws IOException {
+        HmcExecutable executable = script("fake-hmc-help", """
+            #!/bin/sh
+            case " $* " in
+              *" --version "*) echo 1.0.0 ;;
+              *" server launch --help "*) echo "Usage: headlessmc server launch [-hV] [--offline]" ;;
+              *" launch --help "*)
+                echo "Usage: headlessmc launch [-hV] [--dry-run] [--offline] [profile...]"
+                echo "      --no-backup   Does not back up the profile." ;;
+              *) exit 2 ;;
+            esac
+            """);
+
+        assertThat(HmcRunner.hasOption(executable, List.of("launch"), "--dry-run")).isTrue();
+        assertThat(HmcRunner.hasOption(executable, List.of("launch"), "--no-backup")).isTrue();
+        assertThat(HmcRunner.hasOption(executable, List.of("launch"), "--dry")).isFalse();
+        assertThat(HmcRunner.hasOption(executable, List.of("server", "launch"), "--dry-run")).isFalse();
+    }
+
+    @Test
+    void listPropertyEscapesBackslashesAndCommas() throws IOException {
+        HmcExecutable executable = script("fake-hmc-args", """
+            #!/bin/sh
+            for arg in "$@"; do
+              if [ "$arg" = "--version" ]; then echo 1.0.0; exit 0; fi
+            done
+            printf '%s\\n' "$@"
+            """);
+        HmcRunner runner = new HmcRunner(executable, dir.resolve("run"));
+
+        runner.listProperty("hmc.java.versions", "C:\\Program Files\\Java\\jdk-25", "/opt/jdk,25");
+
+        assertThat(runner.run("java", "ls").stdout().lines())
+            .contains("-Dhmc.java.versions=C:\\\\Program Files\\\\Java\\\\jdk-25,/opt/jdk\\,25");
     }
 
     private HmcExecutable script(String name, String content) throws IOException {
