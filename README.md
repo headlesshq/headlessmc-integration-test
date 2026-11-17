@@ -94,8 +94,6 @@ and, if it fails, its JUnit reports as `test-reports-<variant>-<os>-<arch>`.
 Known headlessmc bugs the tests currently encode or work around:
 
 - `golden/help/headlessmc.txt` contains a stray `test` line below the usage line. Remove it once headlessmc fixes it.
-- `LaunchTest` creates the `mc/resources/...` directories for legacy asset indexes before launching,
-  because headlessmc copies those assets without creating the parent directories.
 
 ## Test cases
 
@@ -111,9 +109,6 @@ The command tests live in `src/test/java/.../it/commands`, one class per command
 | `VersionTest`        | `version ls`; remote versions and `version install vanilla 1.21.1` (`network`); `launch --dry-run` of `rd-132211`, checks the client jar and its sha1 (`network`), and that it fails if a download fails |
 | `ServerTest`         | `server ls`; `server add vanilla 1.21.1` (`network`)                            |
 | `LaunchTest`         | `launch rd-132211`, checks the downloaded client jar and its sha1 (`network`)   |
-
-The `launch --dry-run` tests are skipped when the executable's `launch --help` does not list `--dry-run`,
-e.g. for 3.0.0-RC8. headlessmc#554 added it after that release.
 
 Golden files are only used for stable output such as help text. Output that depends on the machine,
 installed Javas or remote data is checked structurally, e.g. by parsing tables with `HmcTable`.

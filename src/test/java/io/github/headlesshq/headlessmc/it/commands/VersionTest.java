@@ -21,15 +21,13 @@ import java.util.Map;
 import static io.github.headlesshq.headlessmc.it.HmcAssertions.assertThat;
 import static io.github.headlesshq.headlessmc.it.HmcAssertions.assertThatFiles;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * {@code version ls}, {@code version install} and downloading a version with {@code launch --dry-run}.
  * Remote listings change whenever Minecraft or a mod loader releases, so they are checked structurally.
  * <p>
  * {@code version install vanilla} only writes the version json, {@code launch --dry-run} downloads the client jar,
- * libraries, natives, assets and the Java runtime without starting the game. The dry run tests are skipped
- * if the executable under test has no {@code --dry-run} yet, which headlessmc#554 added after 3.0.0-RC8.
+ * libraries, natives, assets and the Java runtime without starting the game.
  */
 @HmcTest
 class VersionTest {
@@ -126,7 +124,6 @@ class VersionTest {
     @Test
     @Tag("network")
     void dryRunDownloadsClientJar(HmcRunner hmc) throws IOException, NoSuchAlgorithmException {
-        assumeDryRun(hmc);
         int java = Runtime.version().feature();
         String version = DRY_RUN_PARENT + "-java" + java;
         String clientJar = "mc/versions/" + version + "/" + version + ".jar";
@@ -160,7 +157,6 @@ class VersionTest {
      */
     @Test
     void dryRunFailsIfADownloadFails(HmcRunner hmc) throws IOException, NoSuchAlgorithmException {
-        assumeDryRun(hmc);
         int java = Runtime.version().feature();
         String deadUrl = "http://127.0.0.1:1/";
         hmc.property("hmc.java.download", "false")
@@ -193,11 +189,6 @@ class VersionTest {
             .contains("Requesting " + deadUrl + "client.jar")
             .doesNotContain("Requesting " + deadUrl + "broken.json");
         assertThat(hmc.mcDir().resolve("versions/broken/broken.jar")).doesNotExist();
-    }
-
-    private static void assumeDryRun(HmcRunner hmc) {
-        assumeTrue(HmcRunner.hasOption(hmc.executable(), List.of("launch"), "--dry-run"),
-            "launch --dry-run is not available in headlessmc " + hmc.version());
     }
 
     private static void writeVersion(HmcRunner hmc, String id, String json) throws IOException {
