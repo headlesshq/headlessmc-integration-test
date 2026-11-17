@@ -108,7 +108,7 @@ The command tests live in `src/test/java/.../it/commands`, one class per command
 | `JavaTest`           | `java ls`; remote distributions (`network`)                                     |
 | `VersionTest`        | `version ls`; remote versions and `version install vanilla 1.21.1` (`network`); `launch --dry-run` of `rd-132211`, checks the client jar and its sha1 (`network`), and that it fails if a download fails |
 | `ServerTest`         | `server ls`; `server add vanilla 1.21.1` (`network`)                            |
-| `LaunchTest`         | `launch rd-132211`, checks the downloaded client jar and its sha1 (`network`)   |
+| `LaunchTest`         | `launch` of a version inheriting from `rd-132211` with `--jvm -version`, checks the exit code, the downloaded client jar and its sha1 (`network`) |
 
 Golden files are only used for stable output such as help text. Output that depends on the machine,
 installed Javas or remote data is checked structurally, e.g. by parsing tables with `HmcTable`.

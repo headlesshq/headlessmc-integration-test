@@ -20,33 +20,46 @@ import static io.github.headlesshq.headlessmc.it.HmcAssertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * {@code launch}. headlessmc only downloads the client jar, libraries and assets when it launches a version,
- * so this is where the client jar of a downloaded version is checked. The smallest vanilla version,
- * {@value #VERSION}, is launched with {@code --jvm -version} so that the game JVM exits right away.
- * The launch itself exits with 1 where no Java 8 is installed, so the files on disk are the real check.
+ * {@code launch} without {@code --dry-run}. Like the dry run in {@link VersionTest}, it downloads the client jar,
+ * libraries and assets of the launched version, and then starts the game. The smallest vanilla version,
+ * {@value #PARENT}, is launched with {@code --jvm -version} so that the game JVM exits right away.
+ * <p>
+ * {@code launch} exits with 1 if the client jar cannot be downloaded or if no Java runtime matching the version
+ * is installed. {@value #PARENT} asks for Java 8, which is not available on every platform, so, as in
+ * {@link VersionTest#dryRunDownloadsClientJar}, the test launches a version that inherits everything from
+ * {@value #PARENT} but asks for the Java the tests run on. headlessmc writes the client jar of the parent
+ * into the directory of the launched version.
  */
 @HmcTest
 class LaunchTest {
-    private static final String VERSION = "rd-132211";
-    private static final String VERSION_DIR = "mc/versions/" + VERSION + "/";
-    private static final String VERSION_JSON = VERSION_DIR + VERSION + ".json";
-    private static final String CLIENT_JAR = VERSION_DIR + VERSION + ".jar";
+    private static final String PARENT = "rd-132211";
+    private static final String PARENT_JSON = "mc/versions/" + PARENT + "/" + PARENT + ".json";
 
     @Test
     @Tag("network")
     void launchDownloadsClientJar(HmcRunner hmc) throws Exception {
-        hmc.property("hmc.java.download", "false");
-        assertThat(hmc.run("version", "install", "vanilla", VERSION)).succeeded();
-        JsonNode json = JsonMapper.shared().readTree(hmc.dir().resolve(VERSION_JSON).toFile());
+        int java = Runtime.version().feature();
+        String version = PARENT + "-java" + java;
+        String versionDir = "mc/versions/" + version + "/";
+        String clientJar = versionDir + version + ".jar";
+        hmc.property("hmc.java.download", "false")
+            .listProperty("hmc.java.versions", System.getProperty("java.home"));
+        assertThat(hmc.run("version", "install", "vanilla", PARENT)).succeeded();
+        JsonNode json = JsonMapper.shared().readTree(hmc.dir().resolve(PARENT_JSON).toFile());
+        Files.createDirectories(hmc.dir().resolve(versionDir));
+        Files.writeString(hmc.dir().resolve(versionDir + version + ".json"), """
+            {"id": "%s", "inheritsFrom": "%s", "type": "old_alpha", "javaVersion": {"majorVersion": %d}}
+            """.formatted(version, PARENT, java));
 
-        CommandResult launch = hmc.run("launch", VERSION, "--offline", "-lwjgl", "--jvm", "-version");
+        CommandResult launch = hmc.run("launch", version, "--offline", "-lwjgl", "--jvm", "-version");
 
+        assertThat(launch).succeeded();
         assertThat(launch.files())
-            .hasAdded(CLIENT_JAR)
+            .hasAdded(clientJar)
             .hasAdded("mc/assets/indexes/" + json.path("assetIndex").path("id").asString() + ".json");
 
         JsonNode client = json.path("downloads").path("client");
-        Path jar = hmc.dir().resolve(CLIENT_JAR);
+        Path jar = hmc.dir().resolve(clientJar);
         assertThat(Files.size(jar)).isEqualTo(client.path("size").asLong());
         assertThat(sha1(jar)).isEqualTo(client.path("sha1").asString());
         try (ZipFile zip = new ZipFile(jar.toFile())) {
